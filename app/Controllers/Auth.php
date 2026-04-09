@@ -9,7 +9,7 @@ class Auth extends Controller
     public function login()
     {
         if (session()->get('usuario_id')) {
-            return redirect()->to('/dashboard');
+            return redirect()->to(site_url('dashboard'));
         }
         return view('auth/login', ['title' => 'Iniciar Sesión']);
     }
@@ -28,7 +28,7 @@ class Auth extends Controller
                 'usuario_nombre' => $usuario['nombre'],
                 'usuario_email' => $usuario['email'],
             ]);
-            return redirect()->to('/dashboard');
+            return redirect()->to(site_url('dashboard'));
         }
 
         return redirect()->back()->with('error', 'Credenciales inválidas.');
@@ -37,6 +37,6 @@ class Auth extends Controller
     public function logout()
     {
         session()->destroy();
-        return redirect()->to('/login');
+        return redirect()->to(site_url('login'));
     }
 }

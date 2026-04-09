@@ -32,13 +32,13 @@ class Marcas extends Controller
         if (!$this->model->insert($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/marcas')->with('success', 'Marca creada correctamente.');
+        return redirect()->to(site_url('marcas'))->with('success', 'Marca creada correctamente.');
     }
 
     public function edit(int $id)
     {
         $marca = $this->model->find($id);
-        if (!$marca) return redirect()->to('/marcas')->with('error', 'Marca no encontrada.');
+        if (!$marca) return redirect()->to(site_url('marcas'))->with('error', 'Marca no encontrada.');
         return view('marcas/form', ['title' => 'Editar Marca', 'marca' => $marca]);
     }
 
@@ -48,12 +48,12 @@ class Marcas extends Controller
         if (!$this->model->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/marcas')->with('success', 'Marca actualizada.');
+        return redirect()->to(site_url('marcas'))->with('success', 'Marca actualizada.');
     }
 
     public function delete(int $id)
     {
         $this->model->delete($id);
-        return redirect()->to('/marcas')->with('success', 'Marca eliminada.');
+        return redirect()->to(site_url('marcas'))->with('success', 'Marca eliminada.');
     }
 }

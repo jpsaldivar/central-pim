@@ -57,13 +57,13 @@ class Productos extends Controller
         $tiendas = $this->request->getPost('tiendas') ?? [];
         $this->model->syncTiendas($id, $tiendas);
 
-        return redirect()->to('/productos')->with('success', 'Producto creado correctamente.');
+        return redirect()->to(site_url('productos'))->with('success', 'Producto creado correctamente.');
     }
 
     public function edit(int $id)
     {
         $producto = $this->model->find($id);
-        if (!$producto) return redirect()->to('/productos')->with('error', 'Producto no encontrado.');
+        if (!$producto) return redirect()->to(site_url('productos'))->with('error', 'Producto no encontrado.');
 
         $categoriasSel = array_column($this->model->getCategorias($id), 'id');
         $tiendasConfig = [];
@@ -100,7 +100,7 @@ class Productos extends Controller
         $tiendas = $this->request->getPost('tiendas') ?? [];
         $this->model->syncTiendas($id, $tiendas);
 
-        return redirect()->to('/productos')->with('success', 'Producto actualizado.');
+        return redirect()->to(site_url('productos'))->with('success', 'Producto actualizado.');
     }
 
     public function delete(int $id)
@@ -109,6 +109,6 @@ class Productos extends Controller
         $db->table('producto_categoria')->where('producto_id', $id)->delete();
         $db->table('producto_tienda')->where('producto_id', $id)->delete();
         $this->model->delete($id);
-        return redirect()->to('/productos')->with('success', 'Producto eliminado.');
+        return redirect()->to(site_url('productos'))->with('success', 'Producto eliminado.');
     }
 }

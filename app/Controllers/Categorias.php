@@ -40,13 +40,13 @@ class Categorias extends Controller
         if (!$this->model->insert($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/categorias')->with('success', 'Categoría creada.');
+        return redirect()->to(site_url('categorias'))->with('success', 'Categoría creada.');
     }
 
     public function edit(int $id)
     {
         $categoria = $this->model->find($id);
-        if (!$categoria) return redirect()->to('/categorias')->with('error', 'Categoría no encontrada.');
+        if (!$categoria) return redirect()->to(site_url('categorias'))->with('error', 'Categoría no encontrada.');
         return view('categorias/form', [
             'title' => 'Editar Categoría',
             'categoria' => $categoria,
@@ -64,7 +64,7 @@ class Categorias extends Controller
         if (!$this->model->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/categorias')->with('success', 'Categoría actualizada.');
+        return redirect()->to(site_url('categorias'))->with('success', 'Categoría actualizada.');
     }
 
     public function delete(int $id)
@@ -72,6 +72,6 @@ class Categorias extends Controller
         // Reassign children to no parent
         $this->model->where('parent_id', $id)->set(['parent_id' => null])->update();
         $this->model->delete($id);
-        return redirect()->to('/categorias')->with('success', 'Categoría eliminada.');
+        return redirect()->to(site_url('categorias'))->with('success', 'Categoría eliminada.');
     }
 }

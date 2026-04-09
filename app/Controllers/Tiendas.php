@@ -32,13 +32,13 @@ class Tiendas extends Controller
         if (!$this->model->insert($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/tiendas')->with('success', 'Tienda creada.');
+        return redirect()->to(site_url('tiendas'))->with('success', 'Tienda creada.');
     }
 
     public function edit(int $id)
     {
         $tienda = $this->model->find($id);
-        if (!$tienda) return redirect()->to('/tiendas')->with('error', 'Tienda no encontrada.');
+        if (!$tienda) return redirect()->to(site_url('tiendas'))->with('error', 'Tienda no encontrada.');
         return view('tiendas/form', ['title' => 'Editar Tienda', 'tienda' => $tienda]);
     }
 
@@ -48,12 +48,12 @@ class Tiendas extends Controller
         if (!$this->model->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/tiendas')->with('success', 'Tienda actualizada.');
+        return redirect()->to(site_url('tiendas'))->with('success', 'Tienda actualizada.');
     }
 
     public function delete(int $id)
     {
         $this->model->delete($id);
-        return redirect()->to('/tiendas')->with('success', 'Tienda eliminada.');
+        return redirect()->to(site_url('tiendas'))->with('success', 'Tienda eliminada.');
     }
 }

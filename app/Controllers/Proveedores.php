@@ -32,13 +32,13 @@ class Proveedores extends Controller
         if (!$this->model->insert($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/proveedores')->with('success', 'Proveedor creado correctamente.');
+        return redirect()->to(site_url('proveedores'))->with('success', 'Proveedor creado correctamente.');
     }
 
     public function edit(int $id)
     {
         $proveedor = $this->model->find($id);
-        if (!$proveedor) return redirect()->to('/proveedores')->with('error', 'Proveedor no encontrado.');
+        if (!$proveedor) return redirect()->to(site_url('proveedores'))->with('error', 'Proveedor no encontrado.');
         return view('proveedores/form', ['title' => 'Editar Proveedor', 'proveedor' => $proveedor]);
     }
 
@@ -48,12 +48,12 @@ class Proveedores extends Controller
         if (!$this->model->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
-        return redirect()->to('/proveedores')->with('success', 'Proveedor actualizado.');
+        return redirect()->to(site_url('proveedores'))->with('success', 'Proveedor actualizado.');
     }
 
     public function delete(int $id)
     {
         $this->model->delete($id);
-        return redirect()->to('/proveedores')->with('success', 'Proveedor eliminado.');
+        return redirect()->to(site_url('proveedores'))->with('success', 'Proveedor eliminado.');
     }
 }
