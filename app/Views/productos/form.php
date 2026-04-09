@@ -1,0 +1,187 @@
+<?= $this->extend('layouts/main') ?>
+<?= $this->section('content') ?>
+<form action="<?= $producto ? '/productos/update/' . $producto['id'] : '/productos/store' ?>" method="POST">
+    <?= csrf_field() ?>
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Información del Producto</h6>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Producto</label>
+                        <input type="text" name="nombre" class="form-control"
+                               value="<?= esc($producto['nombre'] ?? old('nombre')) ?>" required>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Marca</label>
+                            <select name="marca_id" class="form-select">
+                                <option value="">— Sin marca —</option>
+                                <?php foreach ($marcas as $m): ?>
+                                <option value="<?= $m['id'] ?>" <?= (isset($producto['marca_id']) && $producto['marca_id'] == $m['id']) ? 'selected' : '' ?>>
+                                    <?= esc($m['nombre']) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Proveedor</label>
+                            <select name="proveedor_id" class="form-select">
+                                <option value="">— Sin proveedor —</option>
+                                <?php foreach ($proveedores as $pv): ?>
+                                <option value="<?= $pv['id'] ?>" <?= (isset($producto['proveedor_id']) && $producto['proveedor_id'] == $pv['id']) ? 'selected' : '' ?>>
+                                    <?= esc($pv['nombre']) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Precios y Stock</h6>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Precio Base</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="precio" class="form-control" step="0.01" min="0"
+                                       value="<?= esc($producto['precio'] ?? old('precio', '0.00')) ?>" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Precio Oferta</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="precio_oferta" class="form-control" step="0.01" min="0"
+                                       value="<?= esc($producto['precio_oferta'] ?? old('precio_oferta')) ?>"
+                                       placeholder="Opcional">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Costo</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="costo" class="form-control" step="0.01" min="0"
+                                       value="<?= esc($producto['costo'] ?? old('costo', '0.00')) ?>" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Stock General</label>
+                            <input type="number" name="stock_general" class="form-control" min="0"
+                                   value="<?= esc($producto['stock_general'] ?? old('stock_general', 0)) ?>" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-shop me-2 text-success"></i>Configuración por Tienda</h6>
+                    <p class="text-muted small">Habilita el producto en una tienda y opcionalmente define precios/stock diferenciados. Si los dejas vacíos, se usarán los valores base.</p>
+                    <?php if (empty($tiendas)): ?>
+                        <div class="alert alert-info">No hay tiendas registradas. <a href="/tiendas/create">Crear tienda</a>.</div>
+                    <?php else: ?>
+                    <?php foreach ($tiendas as $i => $t):
+                        $tc = $tiendas_config[$t['id']] ?? null;
+                        $enabled = $tc !== null;
+                    ?>
+                    <div class="card mb-2 border">
+                        <div class="card-body py-2 px-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input tienda-toggle" type="checkbox"
+                                       name="tiendas[<?= $i ?>][enabled]" value="1"
+                                       id="tienda_<?= $t['id'] ?>"
+                                       <?= $enabled ? 'checked' : '' ?>>
+                                <input type="hidden" name="tiendas[<?= $i ?>][tienda_id]" value="<?= $t['id'] ?>">
+                                <label class="form-check-label fw-semibold" for="tienda_<?= $t['id'] ?>">
+                                    <i class="bi bi-shop me-1"></i><?= esc($t['nombre']) ?>
+                                </label>
+                            </div>
+                            <div class="tienda-fields <?= !$enabled ? 'd-none' : '' ?> row g-2 ms-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small">Precio específico</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" name="tiendas[<?= $i ?>][valor_especifico]"
+                                               class="form-control form-control-sm" step="0.01" min="0"
+                                               value="<?= esc($tc['valor_especifico'] ?? '') ?>"
+                                               placeholder="Usar base">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Precio oferta específico</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" name="tiendas[<?= $i ?>][valor_oferta_esp]"
+                                               class="form-control form-control-sm" step="0.01" min="0"
+                                               value="<?= esc($tc['valor_oferta_esp'] ?? '') ?>"
+                                               placeholder="Opcional">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Stock específico</label>
+                                    <input type="number" name="tiendas[<?= $i ?>][stock_especifico]"
+                                           class="form-control form-control-sm" min="0"
+                                           value="<?= esc($tc['stock_especifico'] ?? '') ?>"
+                                           placeholder="Usar general">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-diagram-3 me-2 text-info"></i>Categorías</h6>
+                    <?php if (empty($categorias)): ?>
+                        <div class="text-muted small">No hay categorías. <a href="/categorias/create">Crear</a>.</div>
+                    <?php else: ?>
+                    <div style="max-height: 250px; overflow-y: auto;">
+                        <?php foreach ($categorias as $cat): ?>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   name="categorias[]" value="<?= $cat['id'] ?>"
+                                   id="cat_<?= $cat['id'] ?>"
+                                   <?= in_array($cat['id'], $categorias_sel) ? 'checked' : '' ?>>
+                            <label class="form-check-label small" for="cat_<?= $cat['id'] ?>">
+                                <?= esc($cat['nombre']) ?>
+                            </label>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i><?= $producto ? 'Actualizar Producto' : 'Guardar Producto' ?>
+                        </button>
+                        <a href="/productos" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+<?= $this->endSection() ?>
+<?= $this->section('scripts') ?>
+<script>
+document.querySelectorAll('.tienda-toggle').forEach(function(chk) {
+    chk.addEventListener('change', function() {
+        var fields = this.closest('.card-body').querySelector('.tienda-fields');
+        if (this.checked) {
+            fields.classList.remove('d-none');
+        } else {
+            fields.classList.add('d-none');
+        }
+    });
+});
+</script>
+<?= $this->endSection() ?>
