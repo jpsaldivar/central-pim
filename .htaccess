@@ -4,7 +4,10 @@ Options -Indexes
     Options +FollowSymlinks
     RewriteEngine On
 
-    # Redirige todo el tráfico hacia /public, manteniendo la URL visible
-    RewriteCond %{REQUEST_URI} !^/public/
-    RewriteRule ^(.*)$ /public/$1 [L,QSA]
+    # Archivos y carpetas reales pasan directo (css, imágenes, etc.)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Todo lo demás va al index.php raíz (que carga public/index.php)
+    RewriteRule ^(.*)$ index.php [L,QSA]
 </IfModule>
