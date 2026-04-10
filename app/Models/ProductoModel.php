@@ -53,6 +53,14 @@ class ProductoModel extends Model
             ->get()->getResultArray();
     }
 
+    public function getAllProductoTiendas(): array
+    {
+        $db = \Config\Database::connect();
+        return $db->table('producto_tienda')
+            ->select('producto_id, tienda_id, stock_especifico')
+            ->get()->getResultArray();
+    }
+
     public function syncCategorias(int $productoId, array $categoriaIds): void
     {
         $db = \Config\Database::connect();

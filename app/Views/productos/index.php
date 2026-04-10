@@ -18,12 +18,15 @@
                     <th>Precio</th>
                     <th>Costo</th>
                     <th>Stock</th>
+                    <?php foreach ($tiendas as $t): ?>
+                    <th class="text-center"><?= esc($t['nombre']) ?></th>
+                    <?php endforeach; ?>
                     <th class="text-end">Acciones</th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($productos)): ?>
-                <tr><td colspan="8" class="text-center text-muted py-4">No hay productos registrados.</td></tr>
+                <tr><td colspan="<?= 8 + count($tiendas) ?>" class="text-center text-muted py-4">No hay productos registrados.</td></tr>
             <?php else: ?>
                 <?php foreach ($productos as $p): ?>
                 <tr>
@@ -42,6 +45,24 @@
                             <?= $p['stock_general'] ?>
                         </span>
                     </td>
+                    <?php foreach ($tiendas as $t): ?>
+                    <td class="text-center">
+                        <?php
+                        if (!isset($producto_tiendas[$p['id']][$t['id']])) {
+                            // No está en la tienda
+                            echo '<i class="bi bi-x-circle-fill text-danger" title="No disponible en ' . esc($t['nombre']) . '"></i>';
+                        } else {
+                            $pt = $producto_tiendas[$p['id']][$t['id']];
+                            $stock = $pt['stock_especifico'] !== null ? (int)$pt['stock_especifico'] : (int)$p['stock_general'];
+                            if ($stock > 0) {
+                                echo '<i class="bi bi-check-circle-fill text-success" title="Disponible con stock en ' . esc($t['nombre']) . '"></i>';
+                            } else {
+                                echo '<i class="bi bi-check-circle-fill text-warning" title="Disponible sin stock en ' . esc($t['nombre']) . '"></i>';
+                            }
+                        }
+                        ?>
+                    </td>
+                    <?php endforeach; ?>
                     <td class="text-end">
                         <a href="/productos/edit/<?= $p['id'] ?>" class="btn btn-outline-secondary btn-action me-1">
                             <i class="bi bi-pencil"></i>

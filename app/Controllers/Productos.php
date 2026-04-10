@@ -19,9 +19,19 @@ class Productos extends Controller
 
     public function index()
     {
+        $tiendas = (new TiendaModel())->findAll();
+
+        $rawPT = $this->model->getAllProductoTiendas();
+        $productoTiendas = [];
+        foreach ($rawPT as $pt) {
+            $productoTiendas[$pt['producto_id']][$pt['tienda_id']] = $pt;
+        }
+
         return view('productos/index', [
-            'title' => 'Productos',
-            'productos' => $this->model->getWithRelations(),
+            'title'           => 'Productos',
+            'productos'       => $this->model->getWithRelations(),
+            'tiendas'         => $tiendas,
+            'producto_tiendas' => $productoTiendas,
         ]);
     }
 
