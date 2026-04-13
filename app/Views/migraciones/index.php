@@ -1,6 +1,53 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
 
+<?php
+$canRun    = $jumpseller_ok && $woocommerce_ok;
+$hasState  = !empty($migration_state) && ($migration_state['status'] === 'in_progress');
+$progress  = $hasState
+    ? round(($migration_state['last_completed_page'] / max($migration_state['total_pages'], 1)) * 100)
+    : 0;
+?>
+
+<!-- Banner: migración pausada -->
+<?php if ($hasState): ?>
+<div class="alert alert-warning d-flex align-items-start gap-3 mb-4">
+    <i class="bi bi-pause-circle fs-4 mt-1"></i>
+    <div class="flex-grow-1">
+        <strong>Migración pausada</strong> — el proceso se interrumpió en la página
+        <strong><?= $migration_state['last_completed_page'] ?></strong>
+        de <strong><?= $migration_state['total_pages'] ?></strong>
+        (<?= $progress ?>% completado).
+        <div class="progress mt-2" style="height:6px;">
+            <div class="progress-bar bg-warning" style="width:<?= $progress ?>%"></div>
+        </div>
+        <div class="mt-2 small text-muted">
+            Progreso acumulado —
+            Creados: <?= $migration_state['summary']['created'] ?>,
+            Actualizados: <?= $migration_state['summary']['updated'] ?>,
+            Errores: <?= $migration_state['summary']['errors'] ?>
+        </div>
+    </div>
+    <div class="d-flex flex-column gap-2">
+        <form action="<?= site_url('migraciones/reanudar') ?>" method="post">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-warning btn-sm text-nowrap"
+                <?= !$canRun ? 'disabled' : '' ?>
+                onclick="return confirm('¿Continuar desde la página <?= $migration_state['last_completed_page'] + 1 ?>?');">
+                <i class="bi bi-play-fill me-1"></i>Continuar
+            </button>
+        </form>
+        <form action="<?= site_url('migraciones/reiniciar') ?>" method="post">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap"
+                onclick="return confirm('¿Descartar el progreso y empezar de cero?');">
+                <i class="bi bi-x-circle me-1"></i>Descartar
+            </button>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Configuration Status -->
 <div class="row g-3 mb-4">
     <div class="col-md-6">
@@ -23,7 +70,7 @@
                     <small class="text-muted">Credenciales configuradas</small>
                 <?php else: ?>
                     <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>WooCommerce</span>
-                    <small class="text-danger">Faltan <code>woocommerce.url</code> / <code>woocommerce.consumer_key</code> / <code>woocommerce.consumer_secret</code> en .env</small>
+                    <small class="text-danger">Faltan <code>woocommerce.url</code> / keys en .env</small>
                 <?php endif; ?>
             </div>
         </div>
@@ -70,25 +117,34 @@
             <i class="bi bi-arrow-left-right me-2 text-primary"></i>Migración Jumpseller → WooCommerce
         </h6>
         <p class="text-muted small mb-3">
-            Importa todos los productos de Jumpseller hacia WooCommerce aplicando la lógica de upsert por SKU.
-            Los productos simples se envían en lotes de 50; los productos variables se crean junto con sus variantes.
+            Importa todos los productos de Jumpseller hacia WooCommerce aplicando upsert por SKU.
+            Los productos simples se envían en lotes de 50; los variables se crean junto con sus variantes.
+            Si el proceso se interrumpe, aparecerá el botón <strong>Continuar</strong> para reanudar donde quedó.
         </p>
 
+        <?php if ($hasState): ?>
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Hay una migración pausada. Usa <strong>Continuar</strong> en el banner superior,
+            o <strong>Descartar</strong> para empezar de cero.
+        </div>
+        <?php else: ?>
         <div class="alert alert-warning py-2 small mb-3">
             <i class="bi bi-exclamation-triangle me-1"></i>
-            Esta operación puede tardar varios minutos dependiendo del tamaño del catálogo.
-            No cierre esta ventana hasta ver la confirmación.
+            Esta operación puede tardar varios minutos. Si el hosting la interrumpe,
+            usa el botón <strong>Continuar</strong> que aparecerá automáticamente.
         </div>
+        <?php endif; ?>
 
         <form action="<?= site_url('migraciones/ejecutar') ?>" method="post">
             <?= csrf_field() ?>
             <button
                 type="submit"
                 class="btn btn-primary"
-                <?= (!$jumpseller_ok || !$woocommerce_ok) ? 'disabled' : '' ?>
-                onclick="return confirm('¿Confirmar inicio de migración? Este proceso puede tardar varios minutos.');"
+                <?= (!$canRun || $hasState) ? 'disabled' : '' ?>
+                onclick="return confirm('¿Confirmar inicio de migración desde el principio?');"
             >
-                <i class="bi bi-play-fill me-2"></i>Ejecutar Migración
+                <i class="bi bi-play-fill me-2"></i>Iniciar migración
             </button>
             <a href="<?= site_url('migraciones/logs') ?>" class="btn btn-outline-secondary ms-2">
                 <i class="bi bi-journal-text me-2"></i>Ver todos los logs
@@ -137,9 +193,7 @@
                                 default   => 'secondary',
                             };
                             ?>
-                            <span class="badge bg-<?= $badgeClass ?>">
-                                <?= esc($log['estado']) ?>
-                            </span>
+                            <span class="badge bg-<?= $badgeClass ?>"><?= esc($log['estado']) ?></span>
                         </td>
                         <td class="small text-muted"><?= esc(mb_substr($log['mensaje'], 0, 80)) ?></td>
                     </tr>

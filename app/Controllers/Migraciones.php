@@ -7,10 +7,6 @@ use App\Services\ConnectionManager;
 use App\Services\CoreIntegrationService;
 use App\Services\MigrationService;
 
-/**
- * Manual migration controller.
- * Provides the UI to trigger and monitor Jumpseller → WooCommerce migrations.
- */
 class Migraciones extends BaseController
 {
     private ConnectionManager $connectionManager;
@@ -22,60 +18,57 @@ class Migraciones extends BaseController
         $this->logModel          = new MigrationLogModel();
     }
 
-    /**
-     * Main panel: shows configuration status, last migration stats, and the trigger form.
-     */
     public function index(): string
     {
+        $service = $this->makeService();
+
         return view('migraciones/index', [
             'title'              => 'Migraciones',
             'jumpseller_ok'      => $this->connectionManager->isJumpsellerConfigured(),
             'woocommerce_ok'     => $this->connectionManager->isWooCommerceConfigured(),
             'last_session_stats' => $this->logModel->getLastSessionStats(),
             'recent_logs'        => $this->logModel->getRecent(50),
+            'migration_state'    => $service->getState(),
         ]);
     }
 
-    /**
-     * Execute the migration synchronously.
-     * For large catalogs (>500 products) this should be moved to a background queue.
-     */
     public function ejecutar()
     {
-        if (!$this->connectionManager->isJumpsellerConfigured()) {
-            return redirect()->to(site_url('migraciones'))
-                ->with('error', 'Credenciales de Jumpseller no configuradas en .env');
+        if ($error = $this->checkCredentials()) {
+            return redirect()->to(site_url('migraciones'))->with('error', $error);
         }
 
-        if (!$this->connectionManager->isWooCommerceConfigured()) {
-            return redirect()->to(site_url('migraciones'))
-                ->with('error', 'Credenciales de WooCommerce no configuradas en .env');
-        }
+        $result = $this->makeService()->run();
 
-        $jumpseller  = $this->connectionManager->makeJumpsellerAdapter();
-        $woocommerce = $this->connectionManager->makeWooCommerceAdapter();
-        $cis         = new CoreIntegrationService($this->logModel);
-        $service     = new MigrationService($jumpseller, $woocommerce, $cis);
-
-        $result = $service->run();
-
-        $message = sprintf(
-            'Migración completada en %ss — Creados: %d, Actualizados: %d, Omitidos: %d, Errores: %d.',
-            $result['duration_seconds'],
-            $result['created'],
-            $result['updated'],
-            $result['skipped'],
-            $result['errors']
-        );
-
-        $flashKey = $result['errors'] > 0 ? 'error' : 'success';
-
-        return redirect()->to(site_url('migraciones'))->with($flashKey, $message);
+        return redirect()->to(site_url('migraciones'))
+            ->with($result['errors'] > 0 ? 'error' : 'success', $this->formatResult($result));
     }
 
-    /**
-     * Full paginated log viewer.
-     */
+    public function reanudar()
+    {
+        if ($error = $this->checkCredentials()) {
+            return redirect()->to(site_url('migraciones'))->with('error', $error);
+        }
+
+        $result = $this->makeService()->resume();
+
+        if ($result === null) {
+            return redirect()->to(site_url('migraciones'))
+                ->with('error', 'No hay ninguna migración pausada para reanudar.');
+        }
+
+        return redirect()->to(site_url('migraciones'))
+            ->with($result['errors'] > 0 ? 'error' : 'success', $this->formatResult($result));
+    }
+
+    public function reiniciar()
+    {
+        $this->makeService()->clearState();
+
+        return redirect()->to(site_url('migraciones'))
+            ->with('success', 'Estado de migración limpiado. Puedes iniciar una nueva migración.');
+    }
+
     public function logs(): string
     {
         $page   = (int)($this->request->getGet('page') ?? 1);
@@ -92,5 +85,39 @@ class Migraciones extends BaseController
             'page'        => $page,
             'total_pages' => (int)ceil($total / $limit),
         ]);
+    }
+
+    // -------------------------------------------------------------------------
+
+    private function makeService(): MigrationService
+    {
+        return new MigrationService(
+            $this->connectionManager->makeJumpsellerAdapter(),
+            $this->connectionManager->makeWooCommerceAdapter(),
+            new CoreIntegrationService($this->logModel)
+        );
+    }
+
+    private function checkCredentials(): ?string
+    {
+        if (!$this->connectionManager->isJumpsellerConfigured()) {
+            return 'Credenciales de Jumpseller no configuradas en .env';
+        }
+        if (!$this->connectionManager->isWooCommerceConfigured()) {
+            return 'Credenciales de WooCommerce no configuradas en .env';
+        }
+        return null;
+    }
+
+    private function formatResult(array $result): string
+    {
+        return sprintf(
+            'Migración completada en %ss — Creados: %d, Actualizados: %d, Omitidos: %d, Errores: %d.',
+            $result['duration_seconds'],
+            $result['created'],
+            $result['updated'],
+            $result['skipped'],
+            $result['errors']
+        );
     }
 }

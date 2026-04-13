@@ -8,17 +8,16 @@ use App\Adapters\WooCommerceAdapter;
 /**
  * ETL Orchestrator for Jumpseller → WooCommerce migration.
  *
- * Follows Extract → Transform → Load:
- *   - Extract: paginate through Jumpseller products
- *   - Transform: ProductDTO normalizes the data (handled by the DTO layer)
- *   - Load:  CoreIntegrationService pushes to WooCommerce with business rules applied
+ * Supports resumable execution: persists progress in a JSON state file
+ * so that if the hosting kills the process mid-run, the migration can
+ * continue from the last successfully completed page.
  *
- * Designed to be called manually from the Migraciones controller.
- * For large catalogs, this should be moved to a background job/queue.
+ * State file: writable/migration_state.json
  */
 class MigrationService
 {
-    private const PAGE_SIZE = 50;
+    private const PAGE_SIZE   = 50;
+    private const STATE_FILE  = WRITEPATH . 'migration_state.json';
 
     private JumpsellerAdapter $jumpseller;
     private WooCommerceAdapter $woocommerce;
@@ -35,50 +34,104 @@ class MigrationService
     }
 
     /**
-     * Run the full Jumpseller → WooCommerce migration.
-     *
-     * @return array{
-     *   total_jumpseller: int,
-     *   pages_processed: int,
-     *   created: int,
-     *   updated: int,
-     *   skipped: int,
-     *   errors: int,
-     *   duration_seconds: float
-     * }
+     * Start a fresh migration from page 1.
+     * Overwrites any existing state file.
      */
     public function run(): array
     {
-        $startTime = microtime(true);
+        return $this->execute(1, [
+            'created' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+            'errors'  => 0,
+        ]);
+    }
 
-        // Prevent PHP timeout for large catalogs
+    /**
+     * Resume from the last completed page stored in the state file.
+     * Returns null if there is nothing to resume.
+     */
+    public function resume(): ?array
+    {
+        $state = $this->readState();
+
+        if (!$state || $state['status'] !== 'in_progress') {
+            return null;
+        }
+
+        $startPage       = $state['last_completed_page'] + 1;
+        $accumulatedSummary = $state['summary'];
+
+        $this->cis->log('', 'SISTEMA', 'migration_resume', 'info',
+            "Reanudando migración desde página {$startPage}. "
+            . "Progreso previo — Creados: {$accumulatedSummary['created']}, "
+            . "Actualizados: {$accumulatedSummary['updated']}, "
+            . "Errores: {$accumulatedSummary['errors']}."
+        );
+
+        return $this->execute($startPage, $accumulatedSummary);
+    }
+
+    /**
+     * Delete the state file, allowing a clean start.
+     */
+    public function clearState(): void
+    {
+        if (file_exists(self::STATE_FILE)) {
+            unlink(self::STATE_FILE);
+        }
+    }
+
+    /**
+     * Return current migration state or null if no state file exists.
+     */
+    public function getState(): ?array
+    {
+        return $this->readState();
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal
+    // -------------------------------------------------------------------------
+
+    private function execute(int $startPage, array $summary): array
+    {
+        $startTime = microtime(true);
         set_time_limit(0);
 
         $totalProducts = $this->jumpseller->getProductCount();
         $totalPages    = (int)ceil($totalProducts / self::PAGE_SIZE);
 
-        $this->cis->log('', 'SISTEMA', 'migration_start', 'info',
-            "Iniciando migración. Total productos Jumpseller: {$totalProducts}, páginas: {$totalPages}."
-        );
-
-        $summary = [
-            'total_jumpseller' => $totalProducts,
-            'pages_processed'  => 0,
-            'created'          => 0,
-            'updated'          => 0,
-            'skipped'          => 0,
-            'errors'           => 0,
-        ];
+        if ($startPage === 1) {
+            $this->cis->log('', 'SISTEMA', 'migration_start', 'info',
+                "Iniciando migración. Total productos Jumpseller: {$totalProducts}, páginas: {$totalPages}."
+            );
+        }
 
         if ($totalProducts === 0) {
             $this->cis->log('', 'SISTEMA', 'migration_end', 'warning',
                 'No se encontraron productos en Jumpseller.'
             );
-            $summary['duration_seconds'] = round(microtime(true) - $startTime, 2);
+            $this->clearState();
+            $summary['total_jumpseller']  = 0;
+            $summary['pages_processed']   = 0;
+            $summary['duration_seconds']  = round(microtime(true) - $startTime, 2);
             return $summary;
         }
 
-        for ($page = 1; $page <= $totalPages; $page++) {
+        // Write initial state so it exists even if the first page kills the process
+        $this->writeState([
+            'status'              => 'in_progress',
+            'total_products'      => $totalProducts,
+            'total_pages'         => $totalPages,
+            'last_completed_page' => $startPage - 1,
+            'started_at'          => date('Y-m-d H:i:s'),
+            'summary'             => $summary,
+        ]);
+
+        $pagesProcessed = 0;
+
+        for ($page = $startPage; $page <= $totalPages; $page++) {
             $dtos = $this->jumpseller->fetchProducts($page, self::PAGE_SIZE);
 
             if (empty($dtos)) {
@@ -94,17 +147,26 @@ class MigrationService
             $summary['updated'] += $pageResult['updated'];
             $summary['skipped'] += $pageResult['skipped'];
             $summary['errors']  += $pageResult['errors'];
-            $summary['pages_processed']++;
+            $pagesProcessed++;
 
             $this->cis->log('', 'SISTEMA', 'page_processed', 'info',
                 "Página {$page}/{$totalPages} procesada. "
                 . "Creados: {$pageResult['created']}, Actualizados: {$pageResult['updated']}, "
                 . "Omitidos: {$pageResult['skipped']}, Errores: {$pageResult['errors']}."
             );
+
+            // Persist progress after every page so resume always has a valid checkpoint
+            $this->writeState([
+                'status'              => 'in_progress',
+                'total_products'      => $totalProducts,
+                'total_pages'         => $totalPages,
+                'last_completed_page' => $page,
+                'started_at'          => date('Y-m-d H:i:s'),
+                'summary'             => $summary,
+            ]);
         }
 
         $duration = round(microtime(true) - $startTime, 2);
-        $summary['duration_seconds'] = $duration;
 
         $this->cis->log('', 'SISTEMA', 'migration_end', 'success',
             "Migración completada en {$duration}s. "
@@ -112,6 +174,28 @@ class MigrationService
             . "Omitidos: {$summary['skipped']}, Errores: {$summary['errors']}."
         );
 
+        // Clear state: migration finished successfully
+        $this->clearState();
+
+        $summary['total_jumpseller'] = $totalProducts;
+        $summary['pages_processed']  = $pagesProcessed;
+        $summary['duration_seconds'] = $duration;
+
         return $summary;
+    }
+
+    private function writeState(array $state): void
+    {
+        file_put_contents(self::STATE_FILE, json_encode($state, JSON_PRETTY_PRINT));
+    }
+
+    private function readState(): ?array
+    {
+        if (!file_exists(self::STATE_FILE)) {
+            return null;
+        }
+
+        $data = json_decode(file_get_contents(self::STATE_FILE), true);
+        return is_array($data) ? $data : null;
     }
 }
