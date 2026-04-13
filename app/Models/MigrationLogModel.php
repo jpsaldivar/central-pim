@@ -66,7 +66,12 @@ class MigrationLogModel extends Model
             return null;
         }
 
-        return json_decode($row['mensaje'], true);
+        $state = json_decode($row['mensaje'], true);
+        if (is_array($state)) {
+            $state['last_update'] = $row['created_at'];
+        }
+
+        return $state;
     }
 
     /**

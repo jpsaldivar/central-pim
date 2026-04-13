@@ -74,6 +74,28 @@ class Migraciones extends BaseController
             ->with('success', 'Estado de migración limpiado. Puedes iniciar una nueva migración.');
     }
 
+    public function progreso()
+    {
+        $checkpoint = $this->logModel->getCheckpoint();
+
+        if (!$checkpoint) {
+            return $this->response->setJSON(['active' => false]);
+        }
+
+        $total   = max((int)($checkpoint['total_pages'] ?? 1), 1);
+        $current = (int)($checkpoint['last_completed_page'] ?? 0);
+
+        return $this->response->setJSON([
+            'active'              => true,
+            'percent'             => (int)round(($current / $total) * 100),
+            'last_completed_page' => $current,
+            'total_pages'         => $total,
+            'total_products'      => $checkpoint['total_products'] ?? 0,
+            'summary'             => $checkpoint['summary'] ?? [],
+            'last_update'         => $checkpoint['last_update'] ?? null,
+        ]);
+    }
+
     public function logs(): string
     {
         $page   = (int)($this->request->getGet('page') ?? 1);

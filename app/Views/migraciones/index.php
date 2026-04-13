@@ -2,51 +2,55 @@
 <?= $this->section('content') ?>
 
 <?php
-$canRun    = $jumpseller_ok && $woocommerce_ok;
-$hasState  = !empty($migration_state) && ($migration_state['status'] === 'in_progress');
-$progress  = $hasState
-    ? round(($migration_state['last_completed_page'] / max($migration_state['total_pages'], 1)) * 100)
+$canRun   = $jumpseller_ok && $woocommerce_ok;
+$hasState = !empty($migration_state) && ($migration_state['status'] === 'in_progress');
+$initPct  = $hasState
+    ? (int)round(($migration_state['last_completed_page'] / max($migration_state['total_pages'], 1)) * 100)
     : 0;
 ?>
 
-<!-- Banner: migración pausada -->
-<?php if ($hasState): ?>
-<div class="alert alert-warning d-flex align-items-start gap-3 mb-4">
-    <i class="bi bi-pause-circle fs-4 mt-1"></i>
-    <div class="flex-grow-1">
-        <strong>Migración pausada</strong> — el proceso se interrumpió en la página
-        <strong><?= $migration_state['last_completed_page'] ?></strong>
-        de <strong><?= $migration_state['total_pages'] ?></strong>
-        (<?= $progress ?>% completado).
-        <div class="progress mt-2" style="height:6px;">
-            <div class="progress-bar bg-warning" style="width:<?= $progress ?>%"></div>
+<!-- Bloque de progreso en vivo (visible si hay checkpoint activo) -->
+<div id="progreso-bloque" class="card mb-4 <?= $hasState ? '' : 'd-none' ?>">
+    <div class="card-body p-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="fw-semibold mb-0">
+                <span id="progreso-icono" class="me-2">
+                    <?= $hasState ? '<i class="bi bi-arrow-repeat text-primary" id="spin-icon"></i>' : '' ?>
+                </span>
+                <span id="progreso-titulo">Migración en curso</span>
+            </h6>
+            <small class="text-muted">
+                Última actualización: <span id="progreso-ultima"><?= $hasState ? esc($migration_state['last_update'] ?? '—') : '—' ?></span>
+            </small>
         </div>
-        <div class="mt-2 small text-muted">
-            Progreso acumulado —
-            Creados: <?= $migration_state['summary']['created'] ?>,
-            Actualizados: <?= $migration_state['summary']['updated'] ?>,
-            Errores: <?= $migration_state['summary']['errors'] ?>
+
+        <div class="progress mb-2" style="height:10px;">
+            <div id="progreso-barra"
+                 class="progress-bar progress-bar-striped progress-bar-animated"
+                 style="width:<?= $initPct ?>%">
+            </div>
         </div>
-    </div>
-    <div class="d-flex flex-column gap-2">
-        <form action="<?= site_url('migraciones/reanudar') ?>" method="post">
-            <?= csrf_field() ?>
-            <button type="submit" class="btn btn-warning btn-sm text-nowrap"
-                <?= !$canRun ? 'disabled' : '' ?>
-                onclick="return confirm('¿Continuar desde la página <?= $migration_state['last_completed_page'] + 1 ?>?');">
-                <i class="bi bi-play-fill me-1"></i>Continuar
-            </button>
-        </form>
-        <form action="<?= site_url('migraciones/reiniciar') ?>" method="post">
-            <?= csrf_field() ?>
-            <button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap"
-                onclick="return confirm('¿Descartar el progreso y empezar de cero?');">
-                <i class="bi bi-x-circle me-1"></i>Descartar
-            </button>
-        </form>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+                Página <strong><span id="progreso-pagina"><?= $hasState ? $migration_state['last_completed_page'] : 0 ?></span></strong>
+                de <strong><span id="progreso-total"><?= $hasState ? $migration_state['total_pages'] : 0 ?></span></strong>
+                &nbsp;·&nbsp;
+                Creados: <span id="progreso-creados"><?= $hasState ? ($migration_state['summary']['created'] ?? 0) : 0 ?></span>
+                &nbsp;·&nbsp;
+                Actualizados: <span id="progreso-actualizados"><?= $hasState ? ($migration_state['summary']['updated'] ?? 0) : 0 ?></span>
+                &nbsp;·&nbsp;
+                Errores: <span id="progreso-errores"><?= $hasState ? ($migration_state['summary']['errors'] ?? 0) : 0 ?></span>
+            </small>
+            <strong id="progreso-pct" class="text-primary"><?= $initPct ?>%</strong>
+        </div>
     </div>
 </div>
-<?php endif; ?>
+
+<!-- Banner: migración pausada (sin proceso activo) -->
+<div id="banner-pausado" class="<?= $hasState ? '' : 'd-none' ?>">
+    <!-- se muestra cuando el polling detecta que el proceso se detuvo -->
+</div>
 
 <!-- Configuration Status -->
 <div class="row g-3 mb-4">
@@ -119,37 +123,50 @@ $progress  = $hasState
         <p class="text-muted small mb-3">
             Importa todos los productos de Jumpseller hacia WooCommerce aplicando upsert por SKU.
             Los productos simples se envían en lotes de 50; los variables se crean junto con sus variantes.
-            Si el proceso se interrumpe, aparecerá el botón <strong>Continuar</strong> para reanudar donde quedó.
+            Si el proceso se interrumpe, el progreso queda guardado y puedes continuar desde aquí.
         </p>
 
-        <?php if ($hasState): ?>
-        <div class="alert alert-info py-2 small mb-3">
-            <i class="bi bi-info-circle me-1"></i>
-            Hay una migración pausada. Usa <strong>Continuar</strong> en el banner superior,
-            o <strong>Descartar</strong> para empezar de cero.
+        <div id="aviso-estado" class="alert py-2 small mb-3 <?= $hasState ? 'alert-info' : 'alert-warning' ?>">
+            <?php if ($hasState): ?>
+                <i class="bi bi-info-circle me-1"></i>
+                Hay una migración en curso o pausada. Espera a que termine o usa los botones de abajo.
+            <?php else: ?>
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Si el hosting interrumpe el proceso, el progreso queda guardado y podrás continuar.
+            <?php endif; ?>
         </div>
-        <?php else: ?>
-        <div class="alert alert-warning py-2 small mb-3">
-            <i class="bi bi-exclamation-triangle me-1"></i>
-            Esta operación puede tardar varios minutos. Si el hosting la interrumpe,
-            usa el botón <strong>Continuar</strong> que aparecerá automáticamente.
-        </div>
-        <?php endif; ?>
 
-        <form action="<?= site_url('migraciones/ejecutar') ?>" method="post">
-            <?= csrf_field() ?>
-            <button
-                type="submit"
-                class="btn btn-primary"
-                <?= (!$canRun || $hasState) ? 'disabled' : '' ?>
-                onclick="return confirm('¿Confirmar inicio de migración desde el principio?');"
-            >
-                <i class="bi bi-play-fill me-2"></i>Iniciar migración
-            </button>
-            <a href="<?= site_url('migraciones/logs') ?>" class="btn btn-outline-secondary ms-2">
-                <i class="bi bi-journal-text me-2"></i>Ver todos los logs
+        <div class="d-flex gap-2 flex-wrap">
+            <form action="<?= site_url('migraciones/ejecutar') ?>" method="post">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-primary" id="btn-iniciar"
+                    <?= (!$canRun || $hasState) ? 'disabled' : '' ?>
+                    onclick="return confirm('¿Iniciar migración desde el principio?');">
+                    <i class="bi bi-play-fill me-2"></i>Iniciar
+                </button>
+            </form>
+
+            <form action="<?= site_url('migraciones/reanudar') ?>" method="post" id="form-reanudar">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-warning" id="btn-reanudar"
+                    <?= (!$canRun || !$hasState) ? 'disabled' : '' ?>>
+                    <i class="bi bi-play-fill me-2"></i>Continuar
+                </button>
+            </form>
+
+            <form action="<?= site_url('migraciones/reiniciar') ?>" method="post">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-outline-secondary" id="btn-reiniciar"
+                    <?= !$hasState ? 'disabled' : '' ?>
+                    onclick="return confirm('¿Descartar el progreso y empezar de cero?');">
+                    <i class="bi bi-x-circle me-1"></i>Descartar progreso
+                </button>
+            </form>
+
+            <a href="<?= site_url('migraciones/logs') ?>" class="btn btn-outline-secondary">
+                <i class="bi bi-journal-text me-2"></i>Ver logs
             </a>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -158,23 +175,14 @@ $progress  = $hasState
 <div class="card">
     <div class="card-body p-0">
         <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
-            <h6 class="fw-semibold mb-0">
-                <i class="bi bi-list-ul me-2"></i>Actividad Reciente
-            </h6>
-            <a href="<?= site_url('migraciones/logs') ?>" class="btn btn-sm btn-outline-secondary">
-                Ver todo
-            </a>
+            <h6 class="fw-semibold mb-0"><i class="bi bi-list-ul me-2"></i>Actividad Reciente</h6>
+            <a href="<?= site_url('migraciones/logs') ?>" class="btn btn-sm btn-outline-secondary">Ver todo</a>
         </div>
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Fecha</th>
-                        <th>SKU</th>
-                        <th>Producto</th>
-                        <th>Acción</th>
-                        <th>Estado</th>
-                        <th>Mensaje</th>
+                        <th>Fecha</th><th>SKU</th><th>Producto</th><th>Acción</th><th>Estado</th><th>Mensaje</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -185,15 +193,10 @@ $progress  = $hasState
                         <td class="small"><?= esc(mb_substr($log['nombre_producto'], 0, 40)) ?></td>
                         <td><span class="badge bg-secondary"><?= esc($log['accion']) ?></span></td>
                         <td>
-                            <?php
-                            $badgeClass = match($log['estado']) {
-                                'success' => 'success',
-                                'error'   => 'danger',
-                                'warning' => 'warning',
-                                default   => 'secondary',
-                            };
-                            ?>
-                            <span class="badge bg-<?= $badgeClass ?>"><?= esc($log['estado']) ?></span>
+                            <span class="badge bg-<?= match($log['estado']) {
+                                'success' => 'success', 'error' => 'danger',
+                                'warning' => 'warning', default  => 'secondary'
+                            } ?>"><?= esc($log['estado']) ?></span>
                         </td>
                         <td class="small text-muted"><?= esc(mb_substr($log['mensaje'], 0, 80)) ?></td>
                     </tr>
@@ -205,4 +208,56 @@ $progress  = $hasState
 </div>
 <?php endif; ?>
 
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script>
+const PROGRESO_URL  = '<?= site_url('migraciones/progreso') ?>';
+const POLL_INTERVAL = 20000; // 20 segundos
+let   pollTimer     = null;
+let   lastPage      = <?= $hasState ? $migration_state['last_completed_page'] : -1 ?>;
+
+function actualizarUI(data) {
+    const bloque = document.getElementById('progreso-bloque');
+    const barra  = document.getElementById('progreso-barra');
+
+    if (!data.active) {
+        // Proceso terminado o pausado — recarga para mostrar estado final
+        clearInterval(pollTimer);
+        document.getElementById('progreso-titulo').textContent = 'Migración completada o pausada';
+        barra.classList.remove('progress-bar-animated', 'progress-bar-striped', 'bg-primary');
+        barra.classList.add('bg-success');
+        setTimeout(() => location.reload(), 2000);
+        return;
+    }
+
+    // Actualizar barra y cifras
+    bloque.classList.remove('d-none');
+    barra.style.width = data.percent + '%';
+    document.getElementById('progreso-pct').textContent          = data.percent + '%';
+    document.getElementById('progreso-pagina').textContent       = data.last_completed_page;
+    document.getElementById('progreso-total').textContent        = data.total_pages;
+    document.getElementById('progreso-creados').textContent      = data.summary.created    ?? 0;
+    document.getElementById('progreso-actualizados').textContent = data.summary.updated    ?? 0;
+    document.getElementById('progreso-errores').textContent      = data.summary.errors     ?? 0;
+    document.getElementById('progreso-ultima').textContent       = data.last_update        ?? '—';
+
+    // Si la página avanzó respecto al valor anterior, el proceso sigue vivo
+    if (data.last_completed_page !== lastPage) {
+        lastPage = data.last_completed_page;
+    }
+}
+
+function poll() {
+    fetch(PROGRESO_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(actualizarUI)
+        .catch(() => { /* red caída — reintentará en el próximo intervalo */ });
+}
+
+// Arrancar polling si hay estado activo al cargar la página
+if (<?= $hasState ? 'true' : 'false' ?>) {
+    pollTimer = setInterval(poll, POLL_INTERVAL);
+}
+</script>
 <?= $this->endSection() ?>
