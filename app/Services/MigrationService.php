@@ -8,16 +8,13 @@ use App\Adapters\WooCommerceAdapter;
 /**
  * ETL Orchestrator for Jumpseller → WooCommerce migration.
  *
- * Supports resumable execution: persists progress in a JSON state file
- * so that if the hosting kills the process mid-run, the migration can
- * continue from the last successfully completed page.
- *
- * State file: writable/migration_state.json
+ * Checkpoint strategy: after every processed page, inserts a row with
+ * accion = 'checkpoint' in migration_logs. This allows resuming from
+ * phpMyAdmin by inserting a checkpoint row manually if needed.
  */
 class MigrationService
 {
-    private const PAGE_SIZE   = 50;
-    private const STATE_FILE  = WRITEPATH . 'migration_state.json';
+    private const PAGE_SIZE = 50;
 
     private JumpsellerAdapter $jumpseller;
     private WooCommerceAdapter $woocommerce;
@@ -35,10 +32,11 @@ class MigrationService
 
     /**
      * Start a fresh migration from page 1.
-     * Overwrites any existing state file.
      */
     public function run(): array
     {
+        $this->cis->clearCheckpoint();
+
         return $this->execute(1, [
             'created' => 0,
             'updated' => 0,
@@ -48,23 +46,23 @@ class MigrationService
     }
 
     /**
-     * Resume from the last completed page stored in the state file.
-     * Returns null if there is nothing to resume.
+     * Resume from the last checkpoint stored in migration_logs.
+     * Returns null if there is no active checkpoint.
      */
     public function resume(): ?array
     {
-        $state = $this->readState();
+        $state = $this->cis->getCheckpoint();
 
-        if (!$state || $state['status'] !== 'in_progress') {
+        if (!$state) {
             return null;
         }
 
-        $startPage       = $state['last_completed_page'] + 1;
+        $startPage          = $state['last_completed_page'] + 1;
         $accumulatedSummary = $state['summary'];
 
         $this->cis->log('', 'SISTEMA', 'migration_resume', 'info',
-            "Reanudando migración desde página {$startPage}. "
-            . "Progreso previo — Creados: {$accumulatedSummary['created']}, "
+            "Reanudando desde página {$startPage}/{$state['total_pages']}. "
+            . "Acumulado — Creados: {$accumulatedSummary['created']}, "
             . "Actualizados: {$accumulatedSummary['updated']}, "
             . "Errores: {$accumulatedSummary['errors']}."
         );
@@ -73,25 +71,21 @@ class MigrationService
     }
 
     /**
-     * Delete the state file, allowing a clean start.
-     */
-    public function clearState(): void
-    {
-        if (file_exists(self::STATE_FILE)) {
-            unlink(self::STATE_FILE);
-        }
-    }
-
-    /**
-     * Return current migration state or null if no state file exists.
+     * Returns the current checkpoint state, or null if no migration is paused.
      */
     public function getState(): ?array
     {
-        return $this->readState();
+        return $this->cis->getCheckpoint();
     }
 
-    // -------------------------------------------------------------------------
-    // Internal
+    /**
+     * Clear the active checkpoint without running a migration.
+     */
+    public function clearState(): void
+    {
+        $this->cis->clearCheckpoint();
+    }
+
     // -------------------------------------------------------------------------
 
     private function execute(int $startPage, array $summary): array
@@ -112,22 +106,12 @@ class MigrationService
             $this->cis->log('', 'SISTEMA', 'migration_end', 'warning',
                 'No se encontraron productos en Jumpseller.'
             );
-            $this->clearState();
-            $summary['total_jumpseller']  = 0;
-            $summary['pages_processed']   = 0;
-            $summary['duration_seconds']  = round(microtime(true) - $startTime, 2);
+            $this->cis->clearCheckpoint();
+            $summary['total_jumpseller'] = 0;
+            $summary['pages_processed']  = 0;
+            $summary['duration_seconds'] = round(microtime(true) - $startTime, 2);
             return $summary;
         }
-
-        // Write initial state so it exists even if the first page kills the process
-        $this->writeState([
-            'status'              => 'in_progress',
-            'total_products'      => $totalProducts,
-            'total_pages'         => $totalPages,
-            'last_completed_page' => $startPage - 1,
-            'started_at'          => date('Y-m-d H:i:s'),
-            'summary'             => $summary,
-        ]);
 
         $pagesProcessed = 0;
 
@@ -155,13 +139,12 @@ class MigrationService
                 . "Omitidos: {$pageResult['skipped']}, Errores: {$pageResult['errors']}."
             );
 
-            // Persist progress after every page so resume always has a valid checkpoint
-            $this->writeState([
+            // Persist checkpoint after every page so DB always has a valid resume point
+            $this->cis->saveCheckpoint([
                 'status'              => 'in_progress',
                 'total_products'      => $totalProducts,
                 'total_pages'         => $totalPages,
                 'last_completed_page' => $page,
-                'started_at'          => date('Y-m-d H:i:s'),
                 'summary'             => $summary,
             ]);
         }
@@ -174,28 +157,12 @@ class MigrationService
             . "Omitidos: {$summary['skipped']}, Errores: {$summary['errors']}."
         );
 
-        // Clear state: migration finished successfully
-        $this->clearState();
+        $this->cis->clearCheckpoint();
 
         $summary['total_jumpseller'] = $totalProducts;
         $summary['pages_processed']  = $pagesProcessed;
         $summary['duration_seconds'] = $duration;
 
         return $summary;
-    }
-
-    private function writeState(array $state): void
-    {
-        file_put_contents(self::STATE_FILE, json_encode($state, JSON_PRETTY_PRINT));
-    }
-
-    private function readState(): ?array
-    {
-        if (!file_exists(self::STATE_FILE)) {
-            return null;
-        }
-
-        $data = json_decode(file_get_contents(self::STATE_FILE), true);
-        return is_array($data) ? $data : null;
     }
 }

@@ -53,6 +53,55 @@ class MigrationLogModel extends Model
     }
 
     /**
+     * Returns the active checkpoint state, or null if there is none.
+     * A checkpoint is active when the last checkpoint record is not cleared.
+     */
+    public function getCheckpoint(): ?array
+    {
+        $row = $this->whereIn('accion', ['checkpoint', 'checkpoint_cleared'])
+                    ->orderBy('id', 'DESC')
+                    ->first();
+
+        if (!$row || $row['accion'] === 'checkpoint_cleared') {
+            return null;
+        }
+
+        return json_decode($row['mensaje'], true);
+    }
+
+    /**
+     * Persist a checkpoint. Called after every successfully processed page.
+     */
+    public function saveCheckpoint(array $state): void
+    {
+        $this->insert([
+            'tipo'            => 'jumpseller_to_woo',
+            'sku'             => '',
+            'nombre_producto' => 'SISTEMA',
+            'accion'          => 'checkpoint',
+            'estado'          => 'info',
+            'mensaje'         => json_encode($state),
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * Mark checkpoint as cleared so the next getCheckpoint() returns null.
+     */
+    public function clearCheckpoint(): void
+    {
+        $this->insert([
+            'tipo'            => 'jumpseller_to_woo',
+            'sku'             => '',
+            'nombre_producto' => 'SISTEMA',
+            'accion'          => 'checkpoint_cleared',
+            'estado'          => 'info',
+            'mensaje'         => 'Migración completada o reiniciada.',
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
      * Count log entries by estado since the last migration start.
      */
     public function getLastSessionStats(): array

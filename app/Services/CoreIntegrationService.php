@@ -119,6 +119,21 @@ class CoreIntegrationService
         return ['action' => $action];
     }
 
+    public function getCheckpoint(): ?array
+    {
+        return $this->logModel->getCheckpoint();
+    }
+
+    public function saveCheckpoint(array $state): void
+    {
+        $this->logModel->saveCheckpoint($state);
+    }
+
+    public function clearCheckpoint(): void
+    {
+        $this->logModel->clearCheckpoint();
+    }
+
     /**
      * Persists a log entry for every sync operation.
      */
