@@ -26,7 +26,7 @@ class MigrationLogModel extends Model
      */
     public function getRecent(int $limit = 100, int $offset = 0): array
     {
-        return $this->orderBy('created_at', 'DESC')
+        return $this->orderBy('id', 'DESC')
                     ->limit($limit, $offset)
                     ->findAll();
     }
