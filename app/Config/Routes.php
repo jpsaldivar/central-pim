@@ -55,6 +55,7 @@ $routes->get('/productos/delete/(:num)', 'Productos::delete/$1');
 // Migraciones
 $routes->get('/migraciones', 'Migraciones::index');
 $routes->post('/migraciones/ejecutar', 'Migraciones::ejecutar');
+$routes->get('/migraciones/reanudar', 'Migraciones::reanudar');
 $routes->post('/migraciones/reanudar', 'Migraciones::reanudar');
 $routes->post('/migraciones/reiniciar', 'Migraciones::reiniciar');
 $routes->get('/migraciones/logs', 'Migraciones::logs');

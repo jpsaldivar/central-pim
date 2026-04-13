@@ -46,15 +46,20 @@ class Migraciones extends BaseController
 
     public function reanudar()
     {
-        if ($error = $this->checkCredentials()) {
-            return redirect()->to(site_url('migraciones'))->with('error', $error);
+        if ($this->checkCredentials()) {
+            return redirect()->to(site_url('migraciones'));
         }
 
-        $result = $this->makeService()->resume();
+        $service = $this->makeService();
+
+        if (!$service->getState()) {
+            return redirect()->to(site_url('migraciones'));
+        }
+
+        $result = $service->resume();
 
         if ($result === null) {
-            return redirect()->to(site_url('migraciones'))
-                ->with('error', 'No hay ninguna migración pausada para reanudar.');
+            return redirect()->to(site_url('migraciones'));
         }
 
         return redirect()->to(site_url('migraciones'))
