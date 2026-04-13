@@ -51,3 +51,8 @@ $routes->post('/productos/store', 'Productos::store');
 $routes->get('/productos/edit/(:num)', 'Productos::edit/$1');
 $routes->post('/productos/update/(:num)', 'Productos::update/$1');
 $routes->get('/productos/delete/(:num)', 'Productos::delete/$1');
+
+// Migraciones
+$routes->get('/migraciones', 'Migraciones::index');
+$routes->post('/migraciones/ejecutar', 'Migraciones::ejecutar');
+$routes->get('/migraciones/logs', 'Migraciones::logs');

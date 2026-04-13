@@ -1,0 +1,190 @@
+<?php
+
+namespace App\Adapters;
+
+use App\DTOs\ProductDTO;
+use App\Interfaces\IntegrationInterface;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
+
+/**
+ * Adapter for the WooCommerce REST API v3.
+ * Responsible for loading products (ETL: Load phase).
+ *
+ * Auth: Basic Auth (consumer_key + consumer_secret)
+ * Docs: https://woocommerce.github.io/woocommerce-rest-api-docs/
+ */
+class WooCommerceAdapter implements IntegrationInterface
+{
+    private Client $client;
+    private const MAX_BATCH = 100;
+
+    public function __construct(string $storeUrl, string $consumerKey, string $consumerSecret)
+    {
+        $baseUri = rtrim($storeUrl, '/') . '/wp-json/wc/v3/';
+
+        $this->client = new Client([
+            'base_uri' => $baseUri,
+            'auth'     => [$consumerKey, $consumerSecret],
+            'headers'  => [
+                'Accept'       => 'application/json',
+                'Content-Type' => 'application/json',
+            ],
+            'timeout' => 60,
+            'verify'  => true,
+        ]);
+    }
+
+    public function getProductCount(): int
+    {
+        try {
+            $response = $this->client->get('products', ['query' => ['per_page' => 1]]);
+            $total = $response->getHeader('X-WP-Total');
+            return (int)($total[0] ?? 0);
+        } catch (GuzzleException $e) {
+            log_message('error', '[WooCommerceAdapter::getProductCount] ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Fetches raw WooCommerce products (not normalized to ProductDTO).
+     * Used for auditing, not for migration flow.
+     *
+     * @return array[]
+     */
+    public function fetchProducts(int $page, int $limit): array
+    {
+        try {
+            $response = $this->client->get('products', [
+                'query' => ['page' => $page, 'per_page' => $limit],
+            ]);
+            return json_decode($response->getBody()->getContents(), true) ?? [];
+        } catch (GuzzleException $e) {
+            log_message('error', '[WooCommerceAdapter::fetchProducts] ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function findProductBySku(string $sku): ?array
+    {
+        try {
+            $response = $this->client->get('products', [
+                'query' => ['sku' => $sku, 'per_page' => 1],
+            ]);
+            $data = json_decode($response->getBody()->getContents(), true) ?? [];
+            return !empty($data) ? $data[0] : null;
+        } catch (GuzzleException $e) {
+            log_message('error', '[WooCommerceAdapter::findProductBySku] sku=' . $sku . ' ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Batch upsert: checks each SKU, then creates or updates via the batch endpoint.
+     * Only handles simple products — call processVariableProduct() for variable ones.
+     *
+     * @param ProductDTO[] $products
+     * @return array{created: int, updated: int, errors: string[]}
+     */
+    public function batchUpsertProducts(array $products): array
+    {
+        $toCreate = [];
+        $toUpdate = [];
+        $result   = ['created' => 0, 'updated' => 0, 'errors' => []];
+
+        foreach ($products as $dto) {
+            $existing = $this->findProductBySku($dto->sku);
+            $payload  = $dto->toWooCommerce();
+
+            if ($existing) {
+                $payload['id'] = $existing['id'];
+                $toUpdate[]    = $payload;
+            } else {
+                $toCreate[] = $payload;
+            }
+        }
+
+        foreach (array_chunk($toCreate, self::MAX_BATCH) as $chunk) {
+            $response = $this->sendBatch($chunk, []);
+            $result['created'] += count($response['create'] ?? []);
+            $result['errors']   = array_merge($result['errors'], $response['_errors'] ?? []);
+        }
+
+        foreach (array_chunk($toUpdate, self::MAX_BATCH) as $chunk) {
+            $response = $this->sendBatch([], $chunk);
+            $result['updated'] += count($response['update'] ?? []);
+            $result['errors']   = array_merge($result['errors'], $response['_errors'] ?? []);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Creates a single product. Returns the created product data or null on failure.
+     */
+    public function createProduct(array $wooPayload): ?array
+    {
+        try {
+            $response = $this->client->post('products', ['json' => $wooPayload]);
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (GuzzleException $e) {
+            log_message('error', '[WooCommerceAdapter::createProduct] ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Updates a single product by ID. Returns the updated product data or null on failure.
+     */
+    public function updateProduct(int $id, array $wooPayload): ?array
+    {
+        try {
+            $response = $this->client->put("products/{$id}", ['json' => $wooPayload]);
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (GuzzleException $e) {
+            log_message('error', "[WooCommerceAdapter::updateProduct] id={$id} " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Batch creates variations for a variable product.
+     * Uses the /products/{id}/variations/batch endpoint.
+     *
+     * @return array{create: array[]}
+     */
+    public function batchCreateVariations(int $productId, array $variations): array
+    {
+        try {
+            $response = $this->client->post("products/{$productId}/variations/batch", [
+                'json' => ['create' => $variations],
+            ]);
+            return json_decode($response->getBody()->getContents(), true) ?? [];
+        } catch (GuzzleException $e) {
+            log_message('error', "[WooCommerceAdapter::batchCreateVariations] productId={$productId} " . $e->getMessage());
+            return [];
+        }
+    }
+
+    private function sendBatch(array $toCreate, array $toUpdate): array
+    {
+        try {
+            $payload = [];
+            if (!empty($toCreate)) {
+                $payload['create'] = $toCreate;
+            }
+            if (!empty($toUpdate)) {
+                $payload['update'] = $toUpdate;
+            }
+
+            $response = $this->client->post('products/batch', ['json' => $payload]);
+            $data = json_decode($response->getBody()->getContents(), true) ?? [];
+            $data['_errors'] = [];
+            return $data;
+        } catch (GuzzleException $e) {
+            log_message('error', '[WooCommerceAdapter::sendBatch] ' . $e->getMessage());
+            return ['create' => [], 'update' => [], '_errors' => [$e->getMessage()]];
+        }
+    }
+}
