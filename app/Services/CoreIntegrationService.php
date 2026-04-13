@@ -136,6 +136,7 @@ class CoreIntegrationService
             'accion'           => $accion,
             'estado'           => $estado,
             'mensaje'          => $mensaje,
+            'created_at'       => date('Y-m-d H:i:s'),
         ]);
     }
 }

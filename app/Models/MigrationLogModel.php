@@ -16,11 +16,10 @@ class MigrationLogModel extends Model
         'accion',
         'estado',
         'mensaje',
+        'created_at',
     ];
 
-    protected $useTimestamps = true;
-    protected $createdField  = 'created_at';
-    protected $updatedField  = null;
+    protected $useTimestamps = false;
 
     /**
      * Fetch paginated logs, newest first.
