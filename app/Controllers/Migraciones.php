@@ -88,6 +88,7 @@ class Migraciones extends BaseController
         $updated        = 0;
         $skipped        = 0;
         $noMatch        = 0;
+        $duplicates     = 0;
 
         do {
             $products = $adapter->fetchProducts($page, $limit);
@@ -115,21 +116,33 @@ class Migraciones extends BaseController
                     ->where('(sku IS NULL OR sku = "")', null, false)
                     ->get()->getRowArray();
 
-                if ($producto) {
-                    $db->table('productos')
-                        ->where('id', $row['producto_id'])
-                        ->update(['sku' => $dto->sku]);
-                    $updated++;
-                } else {
+                if (!$producto) {
                     $skipped++;
+                    continue;
                 }
+
+                // Verificar que el SKU no esté ya usado por otro producto
+                $skuTaken = $db->table('productos')
+                    ->where('sku', $dto->sku)
+                    ->where('id !=', $row['producto_id'])
+                    ->countAllResults() > 0;
+
+                if ($skuTaken) {
+                    $duplicates++;
+                    continue;
+                }
+
+                $db->table('productos')
+                    ->where('id', $row['producto_id'])
+                    ->update(['sku' => $dto->sku]);
+                $updated++;
             }
 
             $page++;
         } while (count($products) === $limit);
 
         return redirect()->to(site_url('migraciones'))
-            ->with('success', "SKUs sincronizados — Actualizados: {$updated}, Sin SKU en origen: {$skipped}, Sin coincidencia interna: {$noMatch}.");
+            ->with('success', "SKUs sincronizados — Actualizados: {$updated}, Sin SKU en origen: {$skipped}, Sin coincidencia interna: {$noMatch}, SKU duplicado (omitido): {$duplicates}.");
     }
 
     public function progreso()
