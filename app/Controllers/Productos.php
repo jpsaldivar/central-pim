@@ -28,10 +28,12 @@ class Productos extends Controller
         }
 
         return view('productos/index', [
-            'title'           => 'Productos',
-            'productos'       => $this->model->getWithRelations(),
-            'tiendas'         => $tiendas,
+            'title'            => 'Productos',
+            'productos'        => $this->model->getWithRelations(),
+            'tiendas'          => $tiendas,
             'producto_tiendas' => $productoTiendas,
+            'marcas'           => (new MarcaModel())->orderBy('nombre')->findAll(),
+            'categorias'       => (new CategoriaModel())->orderBy('nombre')->findAll(),
         ]);
     }
 
@@ -111,6 +113,52 @@ class Productos extends Controller
         $this->model->syncTiendas($id, $tiendas);
 
         return redirect()->to(site_url('productos'))->with('success', 'Producto actualizado.');
+    }
+
+    public function bulkAction()
+    {
+        $accion = $this->request->getPost('accion');
+        $ids    = $this->request->getPost('ids');
+
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->to(site_url('productos'))->with('error', 'No se seleccionaron productos.');
+        }
+
+        $ids = array_map('intval', $ids);
+
+        switch ($accion) {
+            case 'asignar_marca':
+                $marcaId  = $this->request->getPost('marca_id');
+                $marcaId  = $marcaId !== '' ? (int)$marcaId : null;
+                $affected = $this->model->bulkUpdateMarca($ids, $marcaId);
+                return redirect()->to(site_url('productos'))
+                    ->with('success', "{$affected} producto(s) actualizados con la marca seleccionada.");
+
+            case 'asignar_categoria':
+                $categoriaId = (int)$this->request->getPost('categoria_id');
+                if (!$categoriaId) {
+                    return redirect()->to(site_url('productos'))->with('error', 'Debes seleccionar una categoría.');
+                }
+                $affected = $this->model->bulkAddCategoria($ids, $categoriaId);
+                return redirect()->to(site_url('productos'))
+                    ->with('success', "{$affected} producto(s) añadidos a la categoría.");
+
+            case 'activar_tienda':
+                $tiendaId = (int)$this->request->getPost('tienda_id');
+                if (!$tiendaId) {
+                    return redirect()->to(site_url('productos'))->with('error', 'Debes seleccionar una tienda.');
+                }
+                $affected = $this->model->bulkActivarEnTienda($ids, $tiendaId);
+                $ya = count($ids) - $affected;
+                $msg = "{$affected} producto(s) activados en la tienda.";
+                if ($ya > 0) {
+                    $msg .= " ({$ya} ya estaban activos, sin cambios.)";
+                }
+                return redirect()->to(site_url('productos'))->with('success', $msg);
+
+            default:
+                return redirect()->to(site_url('productos'))->with('error', 'Acción no reconocida.');
+        }
     }
 
     public function delete(int $id)

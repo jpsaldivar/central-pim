@@ -220,6 +220,82 @@ class ProductoModel extends Model
     }
 
     /**
+     * Actualiza la marca de un conjunto de productos de forma masiva.
+     * Devuelve el número de filas afectadas.
+     */
+    public function bulkUpdateMarca(array $ids, ?int $marcaId): int
+    {
+        if (empty($ids)) {
+            return 0;
+        }
+        $db = \Config\Database::connect();
+        $db->table('productos')
+            ->whereIn('id', $ids)
+            ->update(['marca_id' => $marcaId]);
+        return $db->affectedRows();
+    }
+
+    /**
+     * Agrega una categoría a un conjunto de productos (sin eliminar las existentes).
+     * Si el par producto/categoría ya existe, lo omite.
+     * Devuelve el número de inserciones realizadas.
+     */
+    public function bulkAddCategoria(array $ids, int $categoriaId): int
+    {
+        if (empty($ids)) {
+            return 0;
+        }
+        $db      = \Config\Database::connect();
+        $count   = 0;
+        foreach ($ids as $productoId) {
+            $exists = $db->table('producto_categoria')
+                ->where('producto_id', $productoId)
+                ->where('categoria_id', $categoriaId)
+                ->countAllResults() > 0;
+            if (!$exists) {
+                $db->table('producto_categoria')->insert([
+                    'producto_id'  => $productoId,
+                    'categoria_id' => $categoriaId,
+                ]);
+                $count++;
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * Activa un conjunto de productos en una tienda específica.
+     * Si el registro ya existe, lo omite (no toca stock ni precios).
+     * Devuelve el número de productos habilitados por primera vez.
+     */
+    public function bulkActivarEnTienda(array $ids, int $tiendaId): int
+    {
+        if (empty($ids)) {
+            return 0;
+        }
+        $db    = \Config\Database::connect();
+        $count = 0;
+        foreach ($ids as $productoId) {
+            $exists = $db->table('producto_tienda')
+                ->where('producto_id', $productoId)
+                ->where('tienda_id', $tiendaId)
+                ->countAllResults() > 0;
+            if (!$exists) {
+                $db->table('producto_tienda')->insert([
+                    'producto_id'      => $productoId,
+                    'tienda_id'        => $tiendaId,
+                    'valor_especifico' => null,
+                    'valor_oferta_esp' => null,
+                    'stock_especifico' => null,
+                    'external_id'      => null,
+                ]);
+                $count++;
+            }
+        }
+        return $count;
+    }
+
+    /**
      * Guarda el ID externo de un producto en una tienda específica.
      * Llamado por el sistema de migración/sync tras crear o actualizar
      * el producto en la plataforma destino.
