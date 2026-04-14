@@ -42,7 +42,7 @@
             </div>
         </div>
 
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle table-sm">
             <thead>
                 <tr>
                     <th style="width:36px;">
@@ -118,6 +118,15 @@
             <?php endif; ?>
             </tbody>
         </table>
+
+        <?php if ($pager && $pager->getPageCount() > 1): ?>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <small class="text-muted">
+                Página <?= $pager->getCurrentPage() ?> de <?= $pager->getPageCount() ?>
+            </small>
+            <?= $pager->links('default', 'bootstrap5') ?>
+        </div>
+        <?php endif ?>
 
     </div>
 </div>

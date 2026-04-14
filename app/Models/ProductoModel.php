@@ -17,12 +17,12 @@ class ProductoModel extends Model
         'stock_general' => 'required|integer|greater_than_equal_to[0]',
     ];
 
-    public function getWithRelations(): array
+    public function getWithRelations(int $perPage = 25): array
     {
         return $this->select('productos.*, marcas.nombre as marca_nombre, proveedores.nombre as proveedor_nombre')
             ->join('marcas', 'marcas.id = productos.marca_id', 'left')
             ->join('proveedores', 'proveedores.id = productos.proveedor_id', 'left')
-            ->findAll();
+            ->paginate($perPage);
     }
 
     public function getOneWithRelations(int $id): ?array
@@ -54,12 +54,15 @@ class ProductoModel extends Model
             ->get()->getResultArray();
     }
 
-    public function getAllProductoTiendas(): array
+    public function getAllProductoTiendas(array $productoIds = []): array
     {
         $db = \Config\Database::connect();
-        return $db->table('producto_tienda')
-            ->select('producto_id, tienda_id, stock_especifico')
-            ->get()->getResultArray();
+        $builder = $db->table('producto_tienda')
+            ->select('producto_id, tienda_id, stock_especifico');
+        if (!empty($productoIds)) {
+            $builder->whereIn('producto_id', $productoIds);
+        }
+        return $builder->get()->getResultArray();
     }
 
     public function syncCategorias(int $productoId, array $categoriaIds): void

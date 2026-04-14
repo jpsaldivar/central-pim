@@ -19,9 +19,13 @@ class Productos extends Controller
 
     public function index()
     {
-        $tiendas = (new TiendaModel())->findAll();
+        $tiendas   = (new TiendaModel())->findAll();
+        $productos = $this->model->getWithRelations(25);
+        $pager     = $this->model->pager;
 
-        $rawPT = $this->model->getAllProductoTiendas();
+        $ids   = array_column($productos, 'id');
+        $rawPT = $this->model->getAllProductoTiendas($ids);
+
         $productoTiendas = [];
         foreach ($rawPT as $pt) {
             $productoTiendas[$pt['producto_id']][$pt['tienda_id']] = $pt;
@@ -29,9 +33,10 @@ class Productos extends Controller
 
         return view('productos/index', [
             'title'            => 'Productos',
-            'productos'        => $this->model->getWithRelations(),
+            'productos'        => $productos,
             'tiendas'          => $tiendas,
             'producto_tiendas' => $productoTiendas,
+            'pager'            => $pager,
             'marcas'           => (new MarcaModel())->orderBy('nombre')->findAll(),
             'categorias'       => (new CategoriaModel())->orderBy('nombre')->findAll(),
         ]);
