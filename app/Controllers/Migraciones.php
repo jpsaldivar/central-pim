@@ -73,6 +73,65 @@ class Migraciones extends BaseController
             ->with('success', 'Estado de migración limpiado. Puedes iniciar una nueva migración.');
     }
 
+    public function syncSkus()
+    {
+        if (!$this->connectionManager->isJumpsellerConfigured()) {
+            return redirect()->to(site_url('migraciones'))
+                ->with('error', 'Credenciales de Jumpseller no configuradas en .env');
+        }
+
+        $db             = \Config\Database::connect();
+        $adapter        = $this->connectionManager->makeJumpsellerAdapter();
+        $tiendaId       = $this->connectionManager->getJumpsellerTiendaId();
+        $limit          = 50;
+        $page           = 1;
+        $updated        = 0;
+        $skipped        = 0;
+        $noMatch        = 0;
+
+        do {
+            $products = $adapter->fetchProducts($page, $limit);
+
+            foreach ($products as $dto) {
+                if (empty($dto->sku)) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Buscar producto interno por external_id de Jumpseller
+                $row = $db->table('producto_tienda')
+                    ->where('tienda_id', $tiendaId)
+                    ->where('external_id', (string)$dto->sourceId)
+                    ->get()->getRowArray();
+
+                if (!$row) {
+                    $noMatch++;
+                    continue;
+                }
+
+                // Solo actualizar si el SKU está vacío
+                $producto = $db->table('productos')
+                    ->where('id', $row['producto_id'])
+                    ->where('(sku IS NULL OR sku = "")', null, false)
+                    ->get()->getRowArray();
+
+                if ($producto) {
+                    $db->table('productos')
+                        ->where('id', $row['producto_id'])
+                        ->update(['sku' => $dto->sku]);
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+            }
+
+            $page++;
+        } while (count($products) === $limit);
+
+        return redirect()->to(site_url('migraciones'))
+            ->with('success', "SKUs sincronizados — Actualizados: {$updated}, Sin SKU en origen: {$skipped}, Sin coincidencia interna: {$noMatch}.");
+    }
+
     public function progreso()
     {
         $checkpoint = $this->logModel->getCheckpoint();

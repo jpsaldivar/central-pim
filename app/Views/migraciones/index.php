@@ -170,6 +170,27 @@ $initPct  = $hasState
     </div>
 </div>
 
+<!-- Sync SKUs -->
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <h6 class="fw-semibold mb-1">
+            <i class="bi bi-upc-scan me-2 text-secondary"></i>Sincronizar SKUs desde Jumpseller
+        </h6>
+        <p class="text-muted small mb-3">
+            Actualiza solo el campo SKU en los productos internos que aún no lo tienen,
+            tomando el valor desde Jumpseller. No modifica precios, stock ni WooCommerce.
+        </p>
+        <form action="<?= site_url('migraciones/sync-skus') ?>" method="post">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-outline-primary"
+                <?= !$jumpseller_ok ? 'disabled' : '' ?>
+                onclick="return confirm('¿Sincronizar SKUs desde Jumpseller? Solo se actualizarán productos sin SKU.');">
+                <i class="bi bi-arrow-repeat me-2"></i>Sincronizar SKUs
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- Recent Logs -->
 <?php if (!empty($recent_logs)): ?>
 <div class="card">

@@ -65,3 +65,4 @@ $routes->post('/migraciones/reanudar', 'Migraciones::reanudar');
 $routes->post('/migraciones/reiniciar', 'Migraciones::reiniciar');
 $routes->get('/migraciones/progreso', 'Migraciones::progreso');
 $routes->get('/migraciones/logs', 'Migraciones::logs');
+$routes->post('/migraciones/sync-skus', 'Migraciones::syncSkus');
