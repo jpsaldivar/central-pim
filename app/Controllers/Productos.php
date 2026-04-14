@@ -19,8 +19,12 @@ class Productos extends Controller
 
     public function index()
     {
+        $allowed  = [25, 50, 100, 500, 1000];
+        $perPage  = (int)($this->request->getGet('per_page') ?? 100);
+        $perPage  = in_array($perPage, $allowed) ? $perPage : 100;
+
         $tiendas   = (new TiendaModel())->findAll();
-        $productos = $this->model->getWithRelations(25);
+        $productos = $this->model->getWithRelations($perPage);
         $pager     = $this->model->pager;
 
         $ids   = array_column($productos, 'id');
@@ -37,6 +41,7 @@ class Productos extends Controller
             'tiendas'          => $tiendas,
             'producto_tiendas' => $productoTiendas,
             'pager'            => $pager,
+            'perPage'          => $perPage,
             'marcas'           => (new MarcaModel())->orderBy('nombre')->findAll(),
             'categorias'       => (new CategoriaModel())->orderBy('nombre')->findAll(),
         ]);

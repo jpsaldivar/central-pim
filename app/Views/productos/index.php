@@ -119,14 +119,26 @@
             </tbody>
         </table>
 
-        <?php if ($pager && $pager->getPageCount() > 1): ?>
         <div class="d-flex justify-content-between align-items-center mt-3">
-            <small class="text-muted">
-                Página <?= $pager->getCurrentPage() ?> de <?= $pager->getPageCount() ?>
-            </small>
+            <div class="d-flex align-items-center gap-2">
+                <?php if ($pager): ?>
+                <small class="text-muted">
+                    Página <?= $pager->getCurrentPage() ?> de <?= $pager->getPageCount() ?>
+                </small>
+                <?php endif ?>
+                <select id="per-page-select" class="form-select form-select-sm" style="width:auto;"
+                        onchange="cambiarPorPagina(this.value)">
+                    <?php foreach ([25, 50, 100, 500, 1000] as $opt): ?>
+                    <option value="<?= $opt ?>" <?= $perPage === $opt ? 'selected' : '' ?>>
+                        <?= $opt ?> por página
+                    </option>
+                    <?php endforeach ?>
+                </select>
+            </div>
+            <?php if ($pager && $pager->getPageCount() > 1): ?>
             <?= $pager->links('default', 'bootstrap5') ?>
+            <?php endif ?>
         </div>
-        <?php endif ?>
 
     </div>
 </div>
@@ -284,6 +296,14 @@ function prepararFormulario(accion) {
     });
 
     document.getElementById('bulk-accion').value = accion;
+}
+
+// Cambiar cantidad por página (resetea a página 1)
+function cambiarPorPagina(value) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', value);
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
 }
 
 // Abrir modal de marca
