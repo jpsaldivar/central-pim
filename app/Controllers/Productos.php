@@ -182,6 +182,43 @@ class Productos extends Controller
         }
     }
 
+    public function exportCsv()
+    {
+        $productos = $this->model
+            ->select('productos.*, marcas.nombre as marca_nombre, proveedores.nombre as proveedor_nombre')
+            ->join('marcas', 'marcas.id = productos.marca_id', 'left')
+            ->join('proveedores', 'proveedores.id = productos.proveedor_id', 'left')
+            ->orderBy('productos.nombre')
+            ->findAll();
+
+        $filename = 'productos_' . date('Ymd_His') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $out = fopen('php://output', 'w');
+        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF)); // BOM UTF-8 para Excel
+
+        fputcsv($out, ['ID', 'SKU', 'Nombre', 'Marca', 'Proveedor', 'Precio', 'Precio Oferta', 'Costo', 'Stock']);
+
+        foreach ($productos as $p) {
+            fputcsv($out, [
+                $p['id'],
+                $p['sku'] ?? '',
+                $p['nombre'],
+                $p['marca_nombre'] ?? '',
+                $p['proveedor_nombre'] ?? '',
+                $p['precio'],
+                $p['precio_oferta'] ?? '',
+                $p['costo'],
+                $p['stock_general'],
+            ]);
+        }
+
+        fclose($out);
+        exit;
+    }
+
     public function delete(int $id)
     {
         $db = \Config\Database::connect();

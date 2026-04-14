@@ -16,9 +16,14 @@
         <!-- Cabecera -->
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="fw-semibold mb-0">Catálogo de Productos</h6>
-            <a href="/productos/create" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-lg me-1"></i>Nuevo Producto
-            </a>
+            <div class="d-flex gap-2">
+                <a href="<?= site_url('productos/export-csv') ?>" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download me-1"></i>Exportar CSV
+                </a>
+                <a href="/productos/create" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>Nuevo Producto
+                </a>
+            </div>
         </div>
 
         <!-- Buscador -->
