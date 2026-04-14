@@ -8,6 +8,7 @@ namespace App\DTOs;
  */
 class ProductDTO
 {
+    public int    $sourceId = 0;   // ID del producto en la plataforma de origen (Jumpseller)
     public string $sku = '';
     public string $name = '';
     public string $description = '';
@@ -36,6 +37,7 @@ class ProductDTO
     public static function fromJumpseller(array $product): self
     {
         $dto = new self();
+        $dto->sourceId = (int)($product['id'] ?? 0);
         $dto->sku = (string)($product['sku'] ?? '');
         $dto->name = (string)($product['name'] ?? '');
         $dto->description = strip_tags((string)($product['description'] ?? ''));

@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\MigrationLogModel;
+use App\Models\ProductoModel;
 use App\Services\ConnectionManager;
 use App\Services\CoreIntegrationService;
 use App\Services\MigrationService;
@@ -20,15 +21,13 @@ class Migraciones extends BaseController
 
     public function index(): string
     {
-        $service = $this->makeService();
-
         return view('migraciones/index', [
             'title'              => 'Migraciones',
             'jumpseller_ok'      => $this->connectionManager->isJumpsellerConfigured(),
             'woocommerce_ok'     => $this->connectionManager->isWooCommerceConfigured(),
             'last_session_stats' => $this->logModel->getLastSessionStats(),
             'recent_logs'        => $this->logModel->getRecent(50),
-            'migration_state'    => $service->getState(),
+            'migration_state'    => $this->logModel->getCheckpoint(),
         ]);
     }
 
@@ -118,10 +117,17 @@ class Migraciones extends BaseController
 
     private function makeService(): MigrationService
     {
+        $cis = new CoreIntegrationService(
+            $this->logModel,
+            new ProductoModel(),
+            $this->connectionManager->getJumpsellerTiendaId(),
+            $this->connectionManager->getWooCommerceTiendaId()
+        );
+
         return new MigrationService(
             $this->connectionManager->makeJumpsellerAdapter(),
             $this->connectionManager->makeWooCommerceAdapter(),
-            new CoreIntegrationService($this->logModel)
+            $cis
         );
     }
 

@@ -82,16 +82,17 @@ class WooCommerceAdapter implements IntegrationInterface
 
     /**
      * Batch upsert: checks each SKU, then creates or updates via the batch endpoint.
-     * Only handles simple products — call processVariableProduct() for variable ones.
+     * Only handles simple products — use createProduct/updateProduct for variable ones.
      *
      * @param ProductDTO[] $products
-     * @return array{created: int, updated: int, errors: string[]}
+     * @return array{created: int, updated: int, errors: string[], id_map: array<string, int>}
+     *         id_map: SKU → WooCommerce product ID for every successfully processed product.
      */
     public function batchUpsertProducts(array $products): array
     {
         $toCreate = [];
         $toUpdate = [];
-        $result   = ['created' => 0, 'updated' => 0, 'errors' => []];
+        $result   = ['created' => 0, 'updated' => 0, 'errors' => [], 'id_map' => []];
 
         foreach ($products as $dto) {
             $existing = $this->findProductBySku($dto->sku);
@@ -109,12 +110,22 @@ class WooCommerceAdapter implements IntegrationInterface
             $response = $this->sendBatch($chunk, []);
             $result['created'] += count($response['create'] ?? []);
             $result['errors']   = array_merge($result['errors'], $response['_errors'] ?? []);
+            foreach ($response['create'] ?? [] as $p) {
+                if (!empty($p['sku']) && !empty($p['id'])) {
+                    $result['id_map'][$p['sku']] = (int)$p['id'];
+                }
+            }
         }
 
         foreach (array_chunk($toUpdate, self::MAX_BATCH) as $chunk) {
             $response = $this->sendBatch([], $chunk);
             $result['updated'] += count($response['update'] ?? []);
             $result['errors']   = array_merge($result['errors'], $response['_errors'] ?? []);
+            foreach ($response['update'] ?? [] as $p) {
+                if (!empty($p['sku']) && !empty($p['id'])) {
+                    $result['id_map'][$p['sku']] = (int)$p['id'];
+                }
+            }
         }
 
         return $result;

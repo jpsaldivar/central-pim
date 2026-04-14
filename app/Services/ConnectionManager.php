@@ -49,6 +49,24 @@ class ConnectionManager
         return new JumpsellerAdapter($config['login'], $config['authtoken']);
     }
 
+    /**
+     * Returns the tienda_id of the Jumpseller store in our internal DB.
+     * Configure jumpseller.tienda_id in .env with the ID from the tiendas table.
+     */
+    public function getJumpsellerTiendaId(): int
+    {
+        return (int)env('jumpseller.tienda_id', 0);
+    }
+
+    /**
+     * Returns the tienda_id of the WooCommerce store in our internal DB.
+     * Configure woocommerce.tienda_id in .env with the ID from the tiendas table.
+     */
+    public function getWooCommerceTiendaId(): int
+    {
+        return (int)env('woocommerce.tienda_id', 0);
+    }
+
     public function makeWooCommerceAdapter(): WooCommerceAdapter
     {
         $config = $this->getWooCommerceConfig();

@@ -5,31 +5,48 @@ namespace App\Services;
 use App\Adapters\WooCommerceAdapter;
 use App\DTOs\ProductDTO;
 use App\Models\MigrationLogModel;
+use App\Models\ProductoModel;
 
 /**
  * Core Integration Service (CIS).
  *
- * Platform-agnostic business logic layer that sits between the ETL pipeline
- * and the platform adapters. Handles:
- * - Price/stock business rules (safety minimums, margin enforcement)
- * - Sync audit logging
- * - Variable product orchestration (parent + variations)
+ * Orquesta el flujo completo de sincronización en tres fases:
  *
- * Both MigrationService and future WebhookListeners route through this service
- * to ensure consistent behaviour regardless of what triggered the sync.
+ *   1. Catálogo interno: crea o actualiza el producto en `productos` y lo
+ *      habilita en la tienda Jumpseller con su external_id.
+ *
+ *   2. WooCommerce: empuja el producto a la tienda destino via API.
+ *
+ *   3. Cross-reference: guarda el ID devuelto por WooCommerce en
+ *      `producto_tienda` para la tienda WooCommerce, completando el cruce.
+ *
+ * Si ProductoModel y los tienda_ids no se inyectan (uso sin migración),
+ * las fases 1 y 3 se omiten y solo se realiza el push a WooCommerce.
  */
 class CoreIntegrationService
 {
     private MigrationLogModel $logModel;
+    private ?ProductoModel $productoModel;
+    private int $jumpsellerTiendaId;
+    private int $wooTiendaId;
 
-    public function __construct(MigrationLogModel $logModel)
-    {
-        $this->logModel = $logModel;
+    public function __construct(
+        MigrationLogModel $logModel,
+        ?ProductoModel $productoModel = null,
+        int $jumpsellerTiendaId = 0,
+        int $wooTiendaId = 0
+    ) {
+        $this->logModel           = $logModel;
+        $this->productoModel      = $productoModel;
+        $this->jumpsellerTiendaId = $jumpsellerTiendaId;
+        $this->wooTiendaId        = $wooTiendaId;
     }
 
     /**
-     * Process a batch of ProductDTOs and push them to WooCommerce.
-     * Separates simple products (batched) from variable products (individual).
+     * Procesa un batch de ProductDTOs en tres fases:
+     *   Fase 1 — Sync catálogo interno (productos + producto_tienda Jumpseller)
+     *   Fase 2 — Push a WooCommerce (simple en batch, variables individualmente)
+     *   Fase 3 — Guarda external_id de WooCommerce en producto_tienda
      *
      * @param  ProductDTO[] $dtos
      * @return array{created: int, updated: int, skipped: int, errors: int}
@@ -40,12 +57,22 @@ class CoreIntegrationService
 
         $simpleProducts   = [];
         $variableProducts = [];
+        // SKU → producto_id interno (construido en Fase 1)
+        $skuToProductoId  = [];
 
         foreach ($dtos as $dto) {
             if (empty($dto->sku)) {
                 $this->log('', $dto->name, 'skip', 'warning', 'SKU vacío — producto omitido.');
                 $summary['skipped']++;
                 continue;
+            }
+
+            // --- Fase 1: sync catálogo interno ---
+            if ($this->productoModel && $this->jumpsellerTiendaId) {
+                $productoId = $this->productoModel->upsertFromDto($dto, $this->jumpsellerTiendaId);
+                if ($productoId) {
+                    $skuToProductoId[$dto->sku] = $productoId;
+                }
             }
 
             if ($dto->type === 'variable') {
@@ -55,7 +82,7 @@ class CoreIntegrationService
             }
         }
 
-        // --- Simple products: use batch endpoint ---
+        // --- Fase 2a: productos simples en batch ---
         if (!empty($simpleProducts)) {
             $result = $woo->batchUpsertProducts($simpleProducts);
             $summary['created'] += $result['created'];
@@ -69,14 +96,39 @@ class CoreIntegrationService
                 $this->log('', 'batch', 'upsert', 'error', $err);
                 $summary['errors']++;
             }
+
+            // --- Fase 3a: guardar WooCommerce external_id para productos simples ---
+            if ($this->productoModel && $this->wooTiendaId && !empty($result['id_map'])) {
+                foreach ($result['id_map'] as $sku => $wooId) {
+                    $productoId = $skuToProductoId[$sku] ?? null;
+                    if ($productoId) {
+                        $this->productoModel->setExternalId($productoId, $this->wooTiendaId, (string)$wooId);
+                    }
+                }
+            }
         }
 
-        // --- Variable products: parent first, then variations ---
+        // --- Fase 2b + 3b: productos variables individualmente ---
         foreach ($variableProducts as $dto) {
             $result = $this->syncVariableProduct($dto, $woo);
-            $summary[$result['action']]++;
-            if ($result['action'] === 'errors') {
+
+            if ($result['action'] === 'error') {
                 $summary['errors']++;
+                continue;
+            }
+
+            $summary[$result['action']]++;
+
+            // Fase 3b: guardar WooCommerce external_id del producto variable
+            if ($this->productoModel && $this->wooTiendaId && !empty($result['woo_id'])) {
+                $productoId = $skuToProductoId[$dto->sku] ?? null;
+                if ($productoId) {
+                    $this->productoModel->setExternalId(
+                        $productoId,
+                        $this->wooTiendaId,
+                        (string)$result['woo_id']
+                    );
+                }
             }
         }
 
@@ -84,7 +136,8 @@ class CoreIntegrationService
     }
 
     /**
-     * Creates or updates a variable product (parent + all variations).
+     * Crea o actualiza un producto variable (padre + variantes) en WooCommerce.
+     * Devuelve el WooCommerce product ID para que el llamador pueda guardarlo.
      */
     private function syncVariableProduct(ProductDTO $dto, WooCommerceAdapter $woo): array
     {
@@ -95,7 +148,7 @@ class CoreIntegrationService
             $updated = $woo->updateProduct($existing['id'], $wooParent);
             if (!$updated) {
                 $this->log($dto->sku, $dto->name, 'update', 'error', 'Fallo al actualizar producto variable.');
-                return ['action' => 'errors'];
+                return ['action' => 'error', 'woo_id' => 0];
             }
             $parentId = $existing['id'];
             $action   = 'updated';
@@ -103,20 +156,19 @@ class CoreIntegrationService
             $created = $woo->createProduct($wooParent);
             if (empty($created['id'])) {
                 $this->log($dto->sku, $dto->name, 'create', 'error', 'Fallo al crear producto variable.');
-                return ['action' => 'errors'];
+                return ['action' => 'error', 'woo_id' => 0];
             }
             $parentId = $created['id'];
             $action   = 'created';
         }
 
-        // Push variations
         if (!empty($dto->variants) && $parentId) {
             $variations = array_map(fn($v) => $v->toWooCommerce(), $dto->variants);
             $woo->batchCreateVariations($parentId, $variations);
         }
 
-        $this->log($dto->sku, $dto->name, $action, 'success', "Producto variable {$action} (id={$parentId}).");
-        return ['action' => $action];
+        $this->log($dto->sku, $dto->name, $action, 'success', "Producto variable {$action} (woo_id={$parentId}).");
+        return ['action' => $action, 'woo_id' => $parentId];
     }
 
     public function getCheckpoint(): ?array
@@ -134,9 +186,6 @@ class CoreIntegrationService
         $this->logModel->clearCheckpoint();
     }
 
-    /**
-     * Persists a log entry for every sync operation.
-     */
     public function log(
         string $sku,
         string $nombre,

@@ -1,5 +1,6 @@
 <?php
 namespace App\Models;
+use App\DTOs\ProductDTO;
 use CodeIgniter\Model;
 
 class ProductoModel extends Model
@@ -134,6 +135,88 @@ class ProductoModel extends Model
                 ->where('producto_id', $productoId)
                 ->delete();
         }
+    }
+
+    /**
+     * Crea o actualiza el producto en el catálogo interno a partir de un ProductDTO.
+     *
+     * Estrategia de matching (en orden):
+     *   1. Por external_id en producto_tienda del tienda Jumpseller (más confiable)
+     *   2. Por nombre exacto en productos
+     *   3. Si no existe: crea uno nuevo
+     *
+     * Siempre deja el producto habilitado en la tienda Jumpseller con su external_id.
+     * Precios y stock del DTO se usan como valores base del sistema.
+     *
+     * Devuelve el producto_id interno.
+     */
+    public function upsertFromDto(ProductDTO $dto, int $jumpsellerTiendaId): int
+    {
+        $db = \Config\Database::connect();
+        $productoId = null;
+
+        // 1. Buscar por external_id en producto_tienda (Jumpseller)
+        if ($dto->sourceId && $jumpsellerTiendaId) {
+            $row = $db->table('producto_tienda')
+                ->where('tienda_id', $jumpsellerTiendaId)
+                ->where('external_id', (string)$dto->sourceId)
+                ->get()->getRowArray();
+            if ($row) {
+                $productoId = (int)$row['producto_id'];
+            }
+        }
+
+        // 2. Buscar por nombre exacto
+        if (!$productoId && $dto->name) {
+            $existing = $this->where('nombre', mb_substr($dto->name, 0, 200))->first();
+            if ($existing) {
+                $productoId = (int)$existing['id'];
+            }
+        }
+
+        // Datos base del producto — precios y stock vienen de Jumpseller como referencia general
+        $productoData = [
+            'nombre'        => mb_substr($dto->name, 0, 200),
+            'precio'        => (float)$dto->regularPrice,
+            'precio_oferta' => $dto->salePrice !== '' ? (float)$dto->salePrice : null,
+            'costo'         => 0,
+            'stock_general' => $dto->stockQuantity,
+            'marca_id'      => null,
+            'proveedor_id'  => null,
+        ];
+
+        if ($productoId) {
+            $this->update($productoId, $productoData);
+        } else {
+            $this->insert($productoData);
+            $productoId = $this->getInsertID();
+        }
+
+        // Habilitar en tienda Jumpseller y guardar su external_id
+        if ($jumpsellerTiendaId && $dto->sourceId) {
+            $exists = $db->table('producto_tienda')
+                ->where('producto_id', $productoId)
+                ->where('tienda_id', $jumpsellerTiendaId)
+                ->countAllResults() > 0;
+
+            if ($exists) {
+                $db->table('producto_tienda')
+                    ->where('producto_id', $productoId)
+                    ->where('tienda_id', $jumpsellerTiendaId)
+                    ->update(['external_id' => (string)$dto->sourceId]);
+            } else {
+                $db->table('producto_tienda')->insert([
+                    'producto_id'      => $productoId,
+                    'tienda_id'        => $jumpsellerTiendaId,
+                    'external_id'      => (string)$dto->sourceId,
+                    'valor_especifico' => null,
+                    'valor_oferta_esp' => null,
+                    'stock_especifico' => null,
+                ]);
+            }
+        }
+
+        return $productoId;
     }
 
     /**
