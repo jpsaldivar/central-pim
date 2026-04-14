@@ -47,7 +47,7 @@ class ProductoModel extends Model
     {
         $db = \Config\Database::connect();
         return $db->table('producto_tienda pt')
-            ->select('t.*, pt.valor_especifico, pt.valor_oferta_esp, pt.stock_especifico')
+            ->select('t.*, pt.valor_especifico, pt.valor_oferta_esp, pt.stock_especifico, pt.external_id')
             ->join('tiendas t', 't.id = pt.tienda_id')
             ->where('pt.producto_id', $productoId)
             ->get()->getResultArray();
@@ -73,20 +73,88 @@ class ProductoModel extends Model
         }
     }
 
+    /**
+     * Upsert de tiendas: actualiza si ya existe el registro, inserta si no.
+     * Esto preserva el external_id que el sistema guardó automáticamente,
+     * a menos que el formulario envíe uno explícitamente.
+     */
     public function syncTiendas(int $productoId, array $tiendaData): void
     {
         $db = \Config\Database::connect();
-        $db->table('producto_tienda')->where('producto_id', $productoId)->delete();
+
+        $enabledIds = [];
+
         foreach ($tiendaData as $td) {
-            if (!empty($td['enabled'])) {
-                $db->table('producto_tienda')->insert([
-                    'producto_id'      => $productoId,
-                    'tienda_id'        => $td['tienda_id'],
-                    'valor_especifico' => $td['valor_especifico'] ?: null,
-                    'valor_oferta_esp' => $td['valor_oferta_esp'] ?: null,
-                    'stock_especifico' => $td['stock_especifico'] ?: null,
-                ]);
+            if (empty($td['enabled'])) {
+                continue;
             }
+
+            $tiendaId = (int)$td['tienda_id'];
+            $enabledIds[] = $tiendaId;
+
+            $existing = $db->table('producto_tienda')
+                ->where('producto_id', $productoId)
+                ->where('tienda_id', $tiendaId)
+                ->get()->getRowArray();
+
+            $payload = [
+                'valor_especifico' => $td['valor_especifico'] ?: null,
+                'valor_oferta_esp' => $td['valor_oferta_esp'] ?: null,
+                'stock_especifico' => $td['stock_especifico'] ?: null,
+            ];
+
+            // Solo sobreescribe external_id si el formulario envió un valor explícito
+            if (isset($td['external_id']) && $td['external_id'] !== '') {
+                $payload['external_id'] = $td['external_id'];
+            }
+
+            if ($existing) {
+                $db->table('producto_tienda')
+                    ->where('producto_id', $productoId)
+                    ->where('tienda_id', $tiendaId)
+                    ->update($payload);
+            } else {
+                $payload['producto_id'] = $productoId;
+                $payload['tienda_id']   = $tiendaId;
+                if (!isset($payload['external_id'])) {
+                    $payload['external_id'] = null;
+                }
+                $db->table('producto_tienda')->insert($payload);
+            }
+        }
+
+        // Eliminar tiendas que quedaron deshabilitadas
+        if (!empty($enabledIds)) {
+            $db->table('producto_tienda')
+                ->where('producto_id', $productoId)
+                ->whereNotIn('tienda_id', $enabledIds)
+                ->delete();
+        } else {
+            $db->table('producto_tienda')
+                ->where('producto_id', $productoId)
+                ->delete();
+        }
+    }
+
+    /**
+     * Guarda el ID externo de un producto en una tienda específica.
+     * Llamado por el sistema de migración/sync tras crear o actualizar
+     * el producto en la plataforma destino.
+     */
+    public function setExternalId(int $productoId, int $tiendaId, string $externalId): void
+    {
+        $db = \Config\Database::connect();
+
+        $exists = $db->table('producto_tienda')
+            ->where('producto_id', $productoId)
+            ->where('tienda_id', $tiendaId)
+            ->countAllResults() > 0;
+
+        if ($exists) {
+            $db->table('producto_tienda')
+                ->where('producto_id', $productoId)
+                ->where('tienda_id', $tiendaId)
+                ->update(['external_id' => $externalId]);
         }
     }
 }

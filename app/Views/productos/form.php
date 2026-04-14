@@ -126,6 +126,16 @@
                                            value="<?= esc($tc['stock_especifico'] ?? '') ?>"
                                            placeholder="Usar general">
                                 </div>
+                                <div class="col-12">
+                                    <label class="form-label small d-flex align-items-center gap-1">
+                                        ID externo
+                                        <span class="badge bg-secondary fw-normal" style="font-size:.65rem;">gestionado por el sistema</span>
+                                    </label>
+                                    <input type="text" name="tiendas[<?= $i ?>][external_id]"
+                                           class="form-control form-control-sm font-monospace"
+                                           value="<?= esc($tc['external_id'] ?? '') ?>"
+                                           placeholder="Sin ID externo registrado">
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -31,6 +31,27 @@ CREATE TABLE IF NOT EXISTS `migration_logs` (
 -- `php spark migrate` antes). Si no existe, omítelo.
 -- ============================================================
 
+-- ============================================================
+-- Tabla: producto_tienda — nuevo campo external_id
+-- Almacena el ID del producto en cada plataforma externa
+-- (Ej: ID en Jumpseller, ID en WooCommerce) para poder
+-- hacer cruces y sincronizaciones futuras sin depender del SKU.
+-- ============================================================
+
+ALTER TABLE `producto_tienda`
+  ADD COLUMN `external_id` VARCHAR(100) NULL DEFAULT NULL
+    COMMENT 'ID del producto en la plataforma externa (Jumpseller, WooCommerce, etc.)'
+  AFTER `stock_especifico`;
+
+-- ============================================================
+-- Registrar la migración en la tabla de control de CodeIgniter
+-- para que `php spark migrate` no la intente ejecutar de nuevo.
+--
+-- IMPORTANTE: ejecuta este bloque solo si la tabla `migrations`
+-- ya existe en tu base de datos (es decir, si alguna vez corriste
+-- `php spark migrate` antes). Si no existe, omítelo.
+-- ============================================================
+
 INSERT INTO `migrations` (`version`, `class`, `group`, `namespace`, `time`, `batch`)
 SELECT
   '2024-01-02-000001',
