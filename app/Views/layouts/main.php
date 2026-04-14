@@ -95,6 +95,13 @@
         <a href="/tiendas" class="nav-link <?= str_starts_with(uri_string(), 'tiendas') ? 'active' : '' ?>">
             <i class="bi bi-shop"></i> Tiendas
         </a>
+        <div class="nav-section">Actualizaciones</div>
+        <a href="/actualizaciones/precios" class="nav-link <?= str_starts_with(uri_string(), 'actualizaciones/precios') ? 'active' : '' ?>">
+            <i class="bi bi-currency-dollar"></i> Precios
+        </a>
+        <a href="/actualizaciones/stock" class="nav-link <?= str_starts_with(uri_string(), 'actualizaciones/stock') ? 'active' : '' ?>">
+            <i class="bi bi-boxes"></i> Stock
+        </a>
         <div class="nav-section">Integraciones</div>
         <a href="/migraciones" class="nav-link <?= str_starts_with(uri_string(), 'migraciones') ? 'active' : '' ?>">
             <i class="bi bi-arrow-left-right"></i> Migraciones

@@ -53,6 +53,10 @@ $routes->post('/productos/update/(:num)', 'Productos::update/$1');
 $routes->get('/productos/delete/(:num)', 'Productos::delete/$1');
 $routes->post('/productos/bulk', 'Productos::bulkAction');
 
+// Actualizaciones masivas
+$routes->match(['get', 'post'], '/actualizaciones/precios', 'Actualizaciones::precios');
+$routes->match(['get', 'post'], '/actualizaciones/stock',   'Actualizaciones::stock');
+
 // Migraciones
 $routes->get('/migraciones', 'Migraciones::index');
 $routes->post('/migraciones/ejecutar', 'Migraciones::ejecutar');

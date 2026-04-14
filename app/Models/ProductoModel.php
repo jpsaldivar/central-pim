@@ -58,7 +58,7 @@ class ProductoModel extends Model
     {
         $db = \Config\Database::connect();
         $builder = $db->table('producto_tienda')
-            ->select('producto_id, tienda_id, stock_especifico');
+            ->select('producto_id, tienda_id, stock_especifico, valor_especifico, valor_oferta_esp');
         if (!empty($productoIds)) {
             $builder->whereIn('producto_id', $productoIds);
         }
@@ -236,6 +236,95 @@ class ProductoModel extends Model
             ->whereIn('id', $ids)
             ->update(['marca_id' => $marcaId]);
         return $db->affectedRows();
+    }
+
+    /**
+     * Actualiza masivamente precios generales y específicos por tienda.
+     * Solo actualiza producto_tienda si el registro ya existe (producto activo en esa tienda).
+     * Valor vacío en precio_oferta → NULL (elimina oferta).
+     * Devuelve el número de productos actualizados.
+     */
+    public function bulkUpdatePrecios(
+        array $precios,
+        array $preciosOferta,
+        array $valoresEsp,
+        array $valoresOfertaEsp
+    ): int {
+        $db    = \Config\Database::connect();
+        $count = 0;
+
+        foreach ($precios as $id => $precio) {
+            $id = (int)$id;
+            if (!$id) continue;
+
+            $data = [];
+            if ($precio !== '') {
+                $data['precio'] = (float)str_replace(',', '.', $precio);
+            }
+            $oferta = $preciosOferta[$id] ?? '';
+            $data['precio_oferta'] = $oferta !== '' ? (float)str_replace(',', '.', $oferta) : null;
+
+            if (!empty($data)) {
+                $db->table('productos')->where('id', $id)->update($data);
+                $count++;
+            }
+
+            // Específico por tienda
+            $allTiendaIds = array_unique(array_merge(
+                array_keys($valoresEsp[$id] ?? []),
+                array_keys($valoresOfertaEsp[$id] ?? [])
+            ));
+            foreach ($allTiendaIds as $tiendaId) {
+                $tiendaId  = (int)$tiendaId;
+                $tiendaRow = [];
+                if (isset($valoresEsp[$id][$tiendaId])) {
+                    $v = $valoresEsp[$id][$tiendaId];
+                    $tiendaRow['valor_especifico'] = $v !== '' ? (float)str_replace(',', '.', $v) : null;
+                }
+                if (isset($valoresOfertaEsp[$id][$tiendaId])) {
+                    $v = $valoresOfertaEsp[$id][$tiendaId];
+                    $tiendaRow['valor_oferta_esp'] = $v !== '' ? (float)str_replace(',', '.', $v) : null;
+                }
+                if (!empty($tiendaRow)) {
+                    $db->table('producto_tienda')
+                        ->where('producto_id', $id)
+                        ->where('tienda_id', $tiendaId)
+                        ->update($tiendaRow);
+                }
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * Actualiza masivamente stock general y específico por tienda.
+     * Valor vacío → NULL en stock_especifico (usa el general).
+     * Devuelve el número de productos actualizados.
+     */
+    public function bulkUpdateStock(array $stocks, array $stocksEsp): int
+    {
+        $db    = \Config\Database::connect();
+        $count = 0;
+
+        foreach ($stocks as $id => $stock) {
+            $id = (int)$id;
+            if (!$id) continue;
+
+            if ($stock !== '') {
+                $db->table('productos')
+                    ->where('id', $id)
+                    ->update(['stock_general' => (int)$stock]);
+                $count++;
+            }
+
+            foreach (($stocksEsp[$id] ?? []) as $tiendaId => $stockEsp) {
+                $db->table('producto_tienda')
+                    ->where('producto_id', $id)
+                    ->where('tienda_id', (int)$tiendaId)
+                    ->update(['stock_especifico' => $stockEsp !== '' ? (int)$stockEsp : null]);
+            }
+        }
+        return $count;
     }
 
     /**
