@@ -7,10 +7,18 @@
             <div class="card mb-3">
                 <div class="card-body p-4">
                     <h6 class="fw-semibold mb-3">Información del Producto</h6>
-                    <div class="mb-3">
-                        <label class="form-label">Nombre del Producto</label>
-                        <input type="text" name="nombre" class="form-control"
-                               value="<?= esc($producto['nombre'] ?? old('nombre')) ?>" required>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nombre del Producto</label>
+                            <input type="text" name="nombre" class="form-control"
+                                   value="<?= esc($producto['nombre'] ?? old('nombre')) ?>" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">SKU</label>
+                            <input type="text" name="sku" class="form-control font-monospace"
+                                   value="<?= esc($producto['sku'] ?? old('sku')) ?>"
+                                   placeholder="Opcional — debe ser único">
+                        </div>
                     </div>
                     <div class="row g-2">
                         <div class="col-md-6">

@@ -7,13 +7,14 @@ class ProductoModel extends Model
 {
     protected $table = 'productos';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id'];
+    protected $allowedFields = ['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id'];
     protected $useTimestamps = false;
 
     protected $validationRules = [
-        'nombre' => 'required|max_length[200]',
-        'precio' => 'required|decimal|greater_than_equal_to[0]',
-        'costo' => 'required|decimal|greater_than_equal_to[0]',
+        'nombre'        => 'required|max_length[200]',
+        'sku'           => 'permit_empty|max_length[100]|is_unique[productos.sku,id,{id}]',
+        'precio'        => 'required|decimal|greater_than_equal_to[0]',
+        'costo'         => 'required|decimal|greater_than_equal_to[0]',
         'stock_general' => 'required|integer|greater_than_equal_to[0]',
     ];
 
@@ -169,7 +170,15 @@ class ProductoModel extends Model
             }
         }
 
-        // 2. Buscar por nombre exacto
+        // 2. Buscar por SKU
+        if (!$productoId && $dto->sku) {
+            $existing = $this->where('sku', $dto->sku)->first();
+            if ($existing) {
+                $productoId = (int)$existing['id'];
+            }
+        }
+
+        // 3. Buscar por nombre exacto
         if (!$productoId && $dto->name) {
             $existing = $this->where('nombre', mb_substr($dto->name, 0, 200))->first();
             if ($existing) {
@@ -179,6 +188,7 @@ class ProductoModel extends Model
 
         // Datos base del producto — precios y stock vienen de Jumpseller como referencia general
         $productoData = [
+            'sku'           => $dto->sku ?: null,
             'nombre'        => mb_substr($dto->name, 0, 200),
             'precio'        => (float)$dto->regularPrice,
             'precio_oferta' => $dto->salePrice !== '' ? (float)$dto->salePrice : null,

@@ -63,7 +63,8 @@ class Productos extends Controller
 
     public function store()
     {
-        $data = $this->request->getPost(['nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id']);
+        $data = $this->request->getPost(['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id']);
+        $data['sku']          = $data['sku'] ?: null;
         $data['precio_oferta'] = $data['precio_oferta'] ?: null;
         $data['marca_id'] = $data['marca_id'] ?: null;
         $data['proveedor_id'] = $data['proveedor_id'] ?: null;
@@ -107,7 +108,8 @@ class Productos extends Controller
 
     public function update(int $id)
     {
-        $data = $this->request->getPost(['nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id']);
+        $data = $this->request->getPost(['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id']);
+        $data['sku']          = $data['sku'] ?: null;
         $data['precio_oferta'] = $data['precio_oferta'] ?: null;
         $data['marca_id'] = $data['marca_id'] ?: null;
         $data['proveedor_id'] = $data['proveedor_id'] ?: null;

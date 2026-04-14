@@ -64,3 +64,33 @@ WHERE NOT EXISTS (
   SELECT 1 FROM `migrations`
   WHERE `class` = 'App\\Database\\Migrations\\CreateMigrationLogs'
 );
+
+-- ============================================================
+-- Tabla: productos — nuevo campo sku
+-- SKU universal del producto, único a nivel de sistema.
+-- Equivalente a la migración:
+--   2024-01-03-000001_AddSkuToProductos.php
+-- ============================================================
+
+ALTER TABLE `productos`
+  ADD COLUMN `sku` VARCHAR(100) NULL DEFAULT NULL
+    COMMENT 'SKU único del producto, transversal a todas las plataformas'
+  AFTER `id`,
+  ADD UNIQUE KEY `sku_unique` (`sku`);
+
+-- ============================================================
+-- Registrar la migración en la tabla de control de CodeIgniter
+-- ============================================================
+
+INSERT INTO `migrations` (`version`, `class`, `group`, `namespace`, `time`, `batch`)
+SELECT
+  '2024-01-03-000001',
+  'App\\Database\\Migrations\\AddSkuToProductos',
+  'default',
+  'App',
+  UNIX_TIMESTAMP(),
+  COALESCE((SELECT MAX(batch) FROM migrations m2), 0) + 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM `migrations`
+  WHERE `class` = 'App\\Database\\Migrations\\AddSkuToProductos'
+);
