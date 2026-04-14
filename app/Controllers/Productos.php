@@ -19,12 +19,19 @@ class Productos extends Controller
 
     public function index()
     {
-        $allowed  = [25, 50, 100, 500, 1000];
-        $perPage  = (int)($this->request->getGet('per_page') ?? 100);
-        $perPage  = in_array($perPage, $allowed) ? $perPage : 100;
+        $allowed      = [25, 50, 100, 500, 1000];
+        $perPage      = (int)($this->request->getGet('per_page') ?? 100);
+        $perPage      = in_array($perPage, $allowed) ? $perPage : 100;
+        $searchField  = $this->request->getGet('search_field') ?? 'nombre';
+        $searchValue  = trim($this->request->getGet('search_value') ?? '');
+
+        $validFields  = ['sku', 'nombre', 'marca', 'proveedor'];
+        if (!in_array($searchField, $validFields)) {
+            $searchField = 'nombre';
+        }
 
         $tiendas   = (new TiendaModel())->findAll();
-        $productos = $this->model->getWithRelations($perPage);
+        $productos = $this->model->getWithRelations($perPage, $searchField, $searchValue);
         $pager     = $this->model->pager;
 
         $ids   = array_column($productos, 'id');
@@ -42,6 +49,8 @@ class Productos extends Controller
             'producto_tiendas' => $productoTiendas,
             'pager'            => $pager,
             'perPage'          => $perPage,
+            'searchField'      => $searchField,
+            'searchValue'      => $searchValue,
             'marcas'           => (new MarcaModel())->orderBy('nombre')->findAll(),
             'categorias'       => (new CategoriaModel())->orderBy('nombre')->findAll(),
         ]);

@@ -18,12 +18,24 @@ class ProductoModel extends Model
         'stock_general' => 'required|integer|greater_than_equal_to[0]',
     ];
 
-    public function getWithRelations(int $perPage = 25): array
+    public function getWithRelations(int $perPage = 25, string $searchField = '', string $searchValue = ''): array
     {
-        return $this->select('productos.*, marcas.nombre as marca_nombre, proveedores.nombre as proveedor_nombre')
+        $builder = $this->select('productos.*, marcas.nombre as marca_nombre, proveedores.nombre as proveedor_nombre')
             ->join('marcas', 'marcas.id = productos.marca_id', 'left')
-            ->join('proveedores', 'proveedores.id = productos.proveedor_id', 'left')
-            ->paginate($perPage);
+            ->join('proveedores', 'proveedores.id = productos.proveedor_id', 'left');
+
+        if ($searchValue !== '') {
+            $columnMap = [
+                'sku'       => 'productos.sku',
+                'nombre'    => 'productos.nombre',
+                'marca'     => 'marcas.nombre',
+                'proveedor' => 'proveedores.nombre',
+            ];
+            $col = $columnMap[$searchField] ?? 'productos.nombre';
+            $builder->like($col, $searchValue, 'both');
+        }
+
+        return $builder->paginate($perPage);
     }
 
     public function getOneWithRelations(int $id): ?array

@@ -21,6 +21,30 @@
             </a>
         </div>
 
+        <!-- Buscador -->
+        <form method="GET" action="/productos" class="d-flex gap-2 mb-3">
+            <?php if (isset($perPage) && $perPage !== 100): ?>
+            <input type="hidden" name="per_page" value="<?= $perPage ?>">
+            <?php endif; ?>
+            <select name="search_field" class="form-select form-select-sm" style="width:auto;">
+                <option value="nombre"    <?= ($searchField ?? '') === 'nombre'    ? 'selected' : '' ?>>Nombre</option>
+                <option value="sku"       <?= ($searchField ?? '') === 'sku'       ? 'selected' : '' ?>>SKU</option>
+                <option value="marca"     <?= ($searchField ?? '') === 'marca'     ? 'selected' : '' ?>>Marca</option>
+                <option value="proveedor" <?= ($searchField ?? '') === 'proveedor' ? 'selected' : '' ?>>Proveedor</option>
+            </select>
+            <input type="text" name="search_value" class="form-control form-control-sm"
+                   value="<?= esc($searchValue ?? '') ?>"
+                   placeholder="Buscar..." style="max-width:260px;">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-search"></i>
+            </button>
+            <?php if (!empty($searchValue)): ?>
+            <a href="/productos" class="btn btn-sm btn-outline-danger" title="Limpiar búsqueda">
+                <i class="bi bi-x-lg"></i>
+            </a>
+            <?php endif; ?>
+        </form>
+
         <!-- Barra de acciones masivas (oculta hasta seleccionar algo) -->
         <div id="bulk-bar" class="d-none alert alert-secondary py-2 px-3 mb-3 d-flex align-items-center gap-3">
             <span class="text-muted small">
@@ -49,6 +73,7 @@
                         <input type="checkbox" id="check-all" class="form-check-input">
                     </th>
                     <th>#</th>
+                    <th>SKU</th>
                     <th>Nombre</th>
                     <th>Marca</th>
                     <th>Proveedor</th>
@@ -64,7 +89,7 @@
             <tbody>
             <?php if (empty($productos)): ?>
                 <tr>
-                    <td colspan="<?= 9 + count($tiendas) ?>" class="text-center text-muted py-4">
+                    <td colspan="<?= 10 + count($tiendas) ?>" class="text-center text-muted py-4">
                         No hay productos registrados.
                     </td>
                 </tr>
@@ -76,6 +101,7 @@
                                value="<?= $p['id'] ?>">
                     </td>
                     <td class="text-muted"><?= $p['id'] ?></td>
+                    <td class="font-monospace text-muted small"><?= esc($p['sku'] ?? '—') ?></td>
                     <td><?= esc($p['nombre']) ?></td>
                     <td><?= esc($p['marca_nombre'] ?? '—') ?></td>
                     <td><?= esc($p['proveedor_nombre'] ?? '—') ?></td>
@@ -298,7 +324,7 @@ function prepararFormulario(accion) {
     document.getElementById('bulk-accion').value = accion;
 }
 
-// Cambiar cantidad por página (resetea a página 1)
+// Cambiar cantidad por página (resetea a página 1, preserva búsqueda)
 function cambiarPorPagina(value) {
     const url = new URL(window.location.href);
     url.searchParams.set('per_page', value);
