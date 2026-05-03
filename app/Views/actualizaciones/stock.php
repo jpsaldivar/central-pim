@@ -29,6 +29,7 @@
                         <tr>
                             <th class="ps-3" style="min-width:180px;">Producto</th>
                             <th class="text-center border-start" style="min-width:110px;">Stock general</th>
+                            <th class="text-center border-start" style="min-width:80px;" title="Stock sin límite">&#8734;</th>
                             <?php foreach ($tiendas as $t): ?>
                             <th class="text-center border-start" style="min-width:110px;">
                                 <?= esc($t['nombre']) ?>
@@ -39,7 +40,7 @@
                     <tbody>
                     <?php if (empty($productos)): ?>
                         <tr>
-                            <td colspan="<?= 2 + count($tiendas) ?>" class="text-center text-muted py-4">
+                            <td colspan="<?= 3 + count($tiendas) ?>" class="text-center text-muted py-4">
                                 No hay productos.
                             </td>
                         </tr>
@@ -54,11 +55,21 @@
                                 <small class="text-muted">#<?= $p['id'] ?></small>
                             </td>
                             <!-- Stock general -->
+                            <?php $esIlimitado = !empty($p['stock_ilimitado']); ?>
                             <td class="border-start">
                                 <input type="number" min="0" step="1"
-                                       class="form-control form-control-sm editable-input"
+                                       class="form-control form-control-sm editable-input stock-qty-input"
                                        name="stock_general[<?= $p['id'] ?>]"
-                                       value="<?= $p['stock_general'] ?>">
+                                       value="<?= $p['stock_general'] ?>"
+                                       <?= $esIlimitado ? 'readonly' : '' ?>>
+                            </td>
+                            <!-- Ilimitado -->
+                            <td class="border-start text-center">
+                                <input type="checkbox"
+                                       class="form-check-input ilimitado-check editable-input"
+                                       name="stock_ilimitado[<?= $p['id'] ?>]"
+                                       value="1"
+                                       <?= $esIlimitado ? 'checked' : '' ?>>
                             </td>
                             <!-- Por tienda -->
                             <?php foreach ($tiendas as $t): ?>
@@ -125,6 +136,25 @@ document.querySelectorAll('.editable-input').forEach(input => {
     input.addEventListener('input', () => {
         dirty = true;
         document.getElementById('dirty-badge').classList.remove('d-none');
+    });
+    input.addEventListener('change', () => {
+        dirty = true;
+        document.getElementById('dirty-badge').classList.remove('d-none');
+    });
+});
+
+document.querySelectorAll('.ilimitado-check').forEach(chk => {
+    chk.addEventListener('change', function() {
+        var row   = this.closest('tr');
+        var input = row.querySelector('.stock-qty-input');
+        if (this.checked) {
+            input.value    = 0;
+            input.readOnly = true;
+            input.classList.add('text-muted', 'bg-light');
+        } else {
+            input.readOnly = false;
+            input.classList.remove('text-muted', 'bg-light');
+        }
     });
 });
 

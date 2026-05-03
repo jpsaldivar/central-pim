@@ -74,7 +74,7 @@ class ProductDTO
             $attributeMap = [];
 
             foreach ($variants as $variant) {
-                $dto->variants[] = VariantDTO::fromJumpseller($variant);
+                $dto->variants[] = VariantDTO::fromJumpseller($variant, $dto->manageStock);
                 foreach ($variant['options'] ?? [] as $option) {
                     $name = $option['name'] ?? '';
                     $value = $option['value'] ?? '';
@@ -114,9 +114,13 @@ class ProductDTO
         ];
 
         if ($this->type === 'simple') {
-            $data['regular_price']  = $this->regularPrice;
-            $data['manage_stock']   = $this->manageStock;
-            $data['stock_quantity'] = $this->stockQuantity;
+            $data['regular_price'] = $this->regularPrice;
+            $data['manage_stock']  = $this->manageStock;
+            if ($this->manageStock) {
+                $data['stock_quantity'] = $this->stockQuantity;
+            } else {
+                $data['stock_status'] = 'instock';
+            }
             if ($this->salePrice !== '') {
                 $data['sale_price'] = $this->salePrice;
             }

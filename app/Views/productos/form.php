@@ -77,8 +77,24 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Stock General</label>
-                            <input type="number" name="stock_general" class="form-control" min="0"
-                                   value="<?= esc($producto['stock_general'] ?? old('stock_general', 0)) ?>" required>
+                            <?php $esIlimitado = !empty($producto['stock_ilimitado']); ?>
+                            <div class="input-group">
+                                <input type="number" name="stock_general" id="stock_general_input"
+                                       class="form-control" min="0"
+                                       value="<?= esc($producto['stock_general'] ?? old('stock_general', 0)) ?>"
+                                       <?= $esIlimitado ? 'readonly' : '' ?>>
+                                <span class="input-group-text px-2" title="Stock sin límite">
+                                    <div class="form-check mb-0 d-flex align-items-center gap-1">
+                                        <input class="form-check-input mt-0" type="checkbox"
+                                               name="stock_ilimitado" value="1"
+                                               id="stock_ilimitado_check"
+                                               <?= $esIlimitado ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="stock_ilimitado_check"
+                                               style="font-size:1rem;line-height:1;">&#8734;</label>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="form-text">Marca &#8734; para stock sin límite (no se rastrea)</div>
                         </div>
                     </div>
                 </div>
@@ -201,5 +217,24 @@ document.querySelectorAll('.tienda-toggle').forEach(function(chk) {
         }
     });
 });
+
+(function() {
+    var chk   = document.getElementById('stock_ilimitado_check');
+    var input = document.getElementById('stock_general_input');
+    if (!chk || !input) return;
+
+    function apply() {
+        if (chk.checked) {
+            input.value    = 0;
+            input.readOnly = true;
+            input.classList.add('text-muted');
+        } else {
+            input.readOnly = false;
+            input.classList.remove('text-muted');
+        }
+    }
+    apply();
+    chk.addEventListener('change', apply);
+})();
 </script>
 <?= $this->endSection() ?>

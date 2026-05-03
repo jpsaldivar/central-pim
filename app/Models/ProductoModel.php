@@ -7,7 +7,7 @@ class ProductoModel extends Model
 {
     protected $table = 'productos';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id'];
+    protected $allowedFields = ['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'stock_ilimitado', 'proveedor_id'];
     protected $useTimestamps = false;
 
     protected $validationRules = [
@@ -207,14 +207,15 @@ class ProductoModel extends Model
 
         // Datos base del producto — precios y stock vienen de Jumpseller como referencia general
         $productoData = [
-            'sku'           => $dto->sku ?: null,
-            'nombre'        => mb_substr($dto->name, 0, 200),
-            'precio'        => (float)$dto->regularPrice,
-            'precio_oferta' => $dto->salePrice !== '' ? (float)$dto->salePrice : null,
-            'costo'         => 0,
-            'stock_general' => $dto->stockQuantity,
-            'marca_id'      => $marcaId,
-            'proveedor_id'  => null,
+            'sku'             => $dto->sku ?: null,
+            'nombre'          => mb_substr($dto->name, 0, 200),
+            'precio'          => (float)$dto->regularPrice,
+            'precio_oferta'   => $dto->salePrice !== '' ? (float)$dto->salePrice : null,
+            'costo'           => 0,
+            'stock_general'   => $dto->manageStock ? $dto->stockQuantity : 0,
+            'stock_ilimitado' => $dto->manageStock ? 0 : 1,
+            'marca_id'        => $marcaId,
+            'proveedor_id'    => null,
         ];
 
         if ($productoId) {
@@ -330,7 +331,7 @@ class ProductoModel extends Model
      * Valor vacío → NULL en stock_especifico (usa el general).
      * Devuelve el número de productos actualizados.
      */
-    public function bulkUpdateStock(array $stocks, array $stocksEsp): int
+    public function bulkUpdateStock(array $stocks, array $stocksEsp, array $ilimitados = []): int
     {
         $db    = \Config\Database::connect();
         $count = 0;
@@ -339,12 +340,17 @@ class ProductoModel extends Model
             $id = (int)$id;
             if (!$id) continue;
 
-            if ($stock !== '') {
-                $db->table('productos')
-                    ->where('id', $id)
-                    ->update(['stock_general' => (int)$stock]);
-                $count++;
+            $esIlimitado = !empty($ilimitados[$id]);
+            $productoData = ['stock_ilimitado' => $esIlimitado ? 1 : 0];
+
+            if ($esIlimitado) {
+                $productoData['stock_general'] = 0;
+            } elseif ($stock !== '') {
+                $productoData['stock_general'] = (int)$stock;
             }
+
+            $db->table('productos')->where('id', $id)->update($productoData);
+            $count++;
 
             foreach (($stocksEsp[$id] ?? []) as $tiendaId => $stockEsp) {
                 $db->table('producto_tienda')

@@ -72,11 +72,15 @@ class Productos extends Controller
 
     public function store()
     {
-        $data = $this->request->getPost(['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id']);
-        $data['sku']          = $data['sku'] ?: null;
-        $data['precio_oferta'] = $data['precio_oferta'] ?: null;
-        $data['marca_id'] = $data['marca_id'] ?: null;
-        $data['proveedor_id'] = $data['proveedor_id'] ?: null;
+        $data = $this->request->getPost(['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'stock_ilimitado', 'proveedor_id']);
+        $data['sku']             = $data['sku'] ?: null;
+        $data['precio_oferta']   = $data['precio_oferta'] ?: null;
+        $data['marca_id']        = $data['marca_id'] ?: null;
+        $data['proveedor_id']    = $data['proveedor_id'] ?: null;
+        $data['stock_ilimitado'] = !empty($data['stock_ilimitado']) ? 1 : 0;
+        if ($data['stock_ilimitado']) {
+            $data['stock_general'] = 0;
+        }
 
         if (!$this->model->insert($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
@@ -117,11 +121,15 @@ class Productos extends Controller
 
     public function update(int $id)
     {
-        $data = $this->request->getPost(['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'proveedor_id']);
-        $data['sku']          = $data['sku'] ?: null;
-        $data['precio_oferta'] = $data['precio_oferta'] ?: null;
-        $data['marca_id'] = $data['marca_id'] ?: null;
-        $data['proveedor_id'] = $data['proveedor_id'] ?: null;
+        $data = $this->request->getPost(['sku', 'nombre', 'marca_id', 'precio', 'precio_oferta', 'costo', 'stock_general', 'stock_ilimitado', 'proveedor_id']);
+        $data['sku']             = $data['sku'] ?: null;
+        $data['precio_oferta']   = $data['precio_oferta'] ?: null;
+        $data['marca_id']        = $data['marca_id'] ?: null;
+        $data['proveedor_id']    = $data['proveedor_id'] ?: null;
+        $data['stock_ilimitado'] = !empty($data['stock_ilimitado']) ? 1 : 0;
+        if ($data['stock_ilimitado']) {
+            $data['stock_general'] = 0;
+        }
 
         if (!$this->model->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());

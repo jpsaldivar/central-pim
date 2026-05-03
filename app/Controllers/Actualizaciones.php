@@ -32,10 +32,11 @@ class Actualizaciones extends Controller
     public function stock()
     {
         if ($this->request->getMethod() === 'post') {
-            $stocks    = $this->request->getPost('stock_general') ?? [];
-            $stocksEsp = $this->request->getPost('stock_esp')     ?? [];
+            $stocks     = $this->request->getPost('stock_general')   ?? [];
+            $stocksEsp  = $this->request->getPost('stock_esp')       ?? [];
+            $ilimitados = $this->request->getPost('stock_ilimitado') ?? [];
 
-            $count = $this->model->bulkUpdateStock($stocks, $stocksEsp);
+            $count = $this->model->bulkUpdateStock($stocks, $stocksEsp, $ilimitados);
             return redirect()->back()->with('success', "{$count} producto(s) actualizados.");
         }
 

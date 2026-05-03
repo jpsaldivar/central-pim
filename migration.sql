@@ -94,3 +94,34 @@ WHERE NOT EXISTS (
   SELECT 1 FROM `migrations`
   WHERE `class` = 'App\\Database\\Migrations\\AddSkuToProductos'
 );
+
+-- ============================================================
+-- Tabla: productos — nuevo campo stock_ilimitado
+-- Indica si el producto tiene stock sin límite (infinito).
+-- Cuando es 1, no se hace seguimiento de stock_general y en
+-- WooCommerce se marca con existencias sin rastreo de stock.
+-- Equivalente a la migración:
+--   2024-01-04-000001_AddStockIlimitadoToProductos.php
+-- ============================================================
+
+ALTER TABLE `productos`
+  ADD COLUMN `stock_ilimitado` TINYINT(1) NOT NULL DEFAULT 0
+    COMMENT 'Stock ilimitado (sin seguimiento). 1 = infinito, 0 = rastreado'
+  AFTER `stock_general`;
+
+-- ============================================================
+-- Registrar la migración en la tabla de control de CodeIgniter
+-- ============================================================
+
+INSERT INTO `migrations` (`version`, `class`, `group`, `namespace`, `time`, `batch`)
+SELECT
+  '2024-01-04-000001',
+  'App\\Database\\Migrations\\AddStockIlimitadoToProductos',
+  'default',
+  'App',
+  UNIX_TIMESTAMP(),
+  COALESCE((SELECT MAX(batch) FROM migrations m2), 0) + 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM `migrations`
+  WHERE `class` = 'App\\Database\\Migrations\\AddStockIlimitadoToProductos'
+);

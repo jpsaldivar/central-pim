@@ -15,7 +15,7 @@ class VariantDTO
     /** @var array<array{name: string, option: string}> */
     public array $attributes = [];
 
-    public static function fromJumpseller(array $variant): self
+    public static function fromJumpseller(array $variant, bool $manageStock = true): self
     {
         $dto = new self();
         $dto->sku = (string)($variant['sku'] ?? '');
@@ -24,7 +24,7 @@ class VariantDTO
             ? (string)$variant['sale_price']
             : '';
         $dto->stockQuantity = (int)($variant['stock'] ?? 0);
-        $dto->manageStock = true;
+        $dto->manageStock = $manageStock;
 
         foreach ($variant['options'] ?? [] as $option) {
             $dto->attributes[] = [
@@ -39,12 +39,17 @@ class VariantDTO
     public function toWooCommerce(): array
     {
         $data = [
-            'sku'            => $this->sku,
-            'regular_price'  => $this->regularPrice,
-            'manage_stock'   => $this->manageStock,
-            'stock_quantity' => $this->stockQuantity,
-            'attributes'     => $this->attributes,
+            'sku'           => $this->sku,
+            'regular_price' => $this->regularPrice,
+            'manage_stock'  => $this->manageStock,
+            'attributes'    => $this->attributes,
         ];
+
+        if ($this->manageStock) {
+            $data['stock_quantity'] = $this->stockQuantity;
+        } else {
+            $data['stock_status'] = 'instock';
+        }
 
         if ($this->salePrice !== '') {
             $data['sale_price'] = $this->salePrice;
