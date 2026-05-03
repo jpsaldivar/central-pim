@@ -14,6 +14,9 @@ class ProductDTO
     public string $description = '';
     public string $brand = '';
     public int    $wooCommerceBrandId = 0;
+
+    /** @var int[] IDs de categorías en WooCommerce resueltos durante la migración */
+    public array $wooCategoryIds = [];
     public string $regularPrice = '0';
     public string $salePrice = '';
     public int $stockQuantity = 0;
@@ -103,13 +106,19 @@ class ProductDTO
      */
     public function toWooCommerce(): array
     {
+        // Combinar categorías por nombre (Jumpseller) con IDs resueltos en WooCommerce
+        $cats = $this->categories;
+        foreach ($this->wooCategoryIds as $catId) {
+            $cats[] = ['id' => $catId];
+        }
+
         $data = [
             'name'        => $this->name,
             'type'        => $this->type,
             'sku'         => $this->sku,
             'status'      => $this->status,
             'description' => $this->description,
-            'categories'  => $this->categories,
+            'categories'  => $cats,
             'images'      => $this->images,
         ];
 

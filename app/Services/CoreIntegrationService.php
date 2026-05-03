@@ -63,6 +63,10 @@ class CoreIntegrationService
         $skuToIsNew       = [];
         // Caché local: nombre de marca normalizado → WooCommerce brand ID
         $brandIdCache     = [];
+        // Caché: nombre de marca normalizado → ID de categoría local
+        $localCatIdCache  = [];
+        // Caché: nombre de marca normalizado → WooCommerce category ID
+        $wooCatIdCache    = [];
 
         foreach ($dtos as $dto) {
             if (empty($dto->sku)) {
@@ -80,14 +84,36 @@ class CoreIntegrationService
                 }
             }
 
-            // Resolver brand ID de WooCommerce (con caché para no llamar la API por cada producto)
+            // Resolver brand ID de WooCommerce y categoría mínima (= marca) en local y WooCommerce
             if ($dto->brand !== '') {
                 $cacheKey = mb_strtoupper(trim($dto->brand));
+
+                // Brand en WooCommerce
                 if (!array_key_exists($cacheKey, $brandIdCache)) {
                     $brandIdCache[$cacheKey] = $woo->findOrCreateBrand($dto->brand);
                 }
                 if ($brandIdCache[$cacheKey] !== null) {
                     $dto->wooCommerceBrandId = $brandIdCache[$cacheKey];
+                }
+
+                // Categoría local equivalente a la marca (find-or-create)
+                if (!array_key_exists($cacheKey, $localCatIdCache)) {
+                    $catModel = model('App\Models\CategoriaModel');
+                    $localCatIdCache[$cacheKey] = $catModel->findOrCreateByName($dto->brand);
+                }
+                $localCatId = $localCatIdCache[$cacheKey];
+
+                // Vincular producto a categoría local (solo si ya tenemos el producto_id)
+                if ($localCatId && $this->productoModel && isset($skuToProductoId[$dto->sku])) {
+                    $this->productoModel->bulkAddCategoria([$skuToProductoId[$dto->sku]], $localCatId);
+                }
+
+                // Categoría en WooCommerce (find-or-create)
+                if (!array_key_exists($cacheKey, $wooCatIdCache)) {
+                    $wooCatIdCache[$cacheKey] = $woo->findOrCreateCategory($dto->brand);
+                }
+                if ($wooCatIdCache[$cacheKey] !== null) {
+                    $dto->wooCategoryIds[] = $wooCatIdCache[$cacheKey];
                 }
             }
 

@@ -238,6 +238,43 @@ class WooCommerceAdapter implements IntegrationInterface
         }
     }
 
+    /**
+     * Busca una categoría de producto por nombre en WooCommerce (v3);
+     * si no existe, la crea como categoría raíz.
+     * Devuelve el ID de WooCommerce o null en caso de error.
+     */
+    public function findOrCreateCategory(string $nombre): ?int
+    {
+        $nombreNorm = mb_strtoupper(preg_replace('/\s+/', ' ', trim($nombre)));
+        if ($nombreNorm === '') {
+            return null;
+        }
+
+        try {
+            $response = $this->client->get('products/categories', [
+                'query' => ['search' => $nombreNorm, 'per_page' => 100, 'hide_empty' => false],
+            ]);
+            $categories = json_decode($response->getBody()->getContents(), true) ?? [];
+
+            foreach ($categories as $cat) {
+                $catNorm = mb_strtoupper(preg_replace('/\s+/', ' ', trim($cat['name'] ?? '')));
+                if ($catNorm === $nombreNorm) {
+                    return (int)$cat['id'];
+                }
+            }
+
+            // No existe — crear como categoría raíz
+            $response = $this->client->post('products/categories', [
+                'json' => ['name' => $nombreNorm],
+            ]);
+            $created = json_decode($response->getBody()->getContents(), true);
+            return !empty($created['id']) ? (int)$created['id'] : null;
+        } catch (GuzzleException $e) {
+            log_message('error', '[WooCommerceAdapter::findOrCreateCategory] ' . $nombreNorm . ' ' . $e->getMessage());
+            return null;
+        }
+    }
+
     private function sendBatch(array $toCreate, array $toUpdate): array
     {
         try {
