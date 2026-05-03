@@ -13,6 +13,7 @@
                 <tr>
                     <th>#</th>
                     <th>Nombre</th>
+                    <th>Plataforma</th>
                     <th>URL API</th>
                     <th>Token</th>
                     <th class="text-end">Acciones</th>
@@ -20,12 +21,13 @@
             </thead>
             <tbody>
             <?php if (empty($tiendas)): ?>
-                <tr><td colspan="5" class="text-center text-muted py-4">No hay tiendas registradas.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">No hay tiendas registradas.</td></tr>
             <?php else: ?>
                 <?php foreach ($tiendas as $t): ?>
                 <tr>
                     <td class="text-muted"><?= $t['id'] ?></td>
                     <td><?= esc($t['nombre']) ?></td>
+                    <td><span class="badge bg-secondary text-capitalize"><?= esc($t['plataforma'] ?? '—') ?></span></td>
                     <td><code class="small"><?= esc($t['url_api']) ?></code></td>
                     <td><code class="small text-muted"><?= substr(esc($t['token_auth']), 0, 20) ?>…</code></td>
                     <td class="text-end">

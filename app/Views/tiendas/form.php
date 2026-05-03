@@ -12,6 +12,18 @@
                                value="<?= esc($tienda['nombre'] ?? old('nombre')) ?>" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label fw-semibold">Plataforma</label>
+                        <select name="plataforma" class="form-select" required>
+                            <option value="">Selecciona una plataforma</option>
+                            <?php foreach ($platforms as $p): ?>
+                            <option value="<?= esc($p['value']) ?>"
+                                <?= (($tienda['plataforma'] ?? old('plataforma')) === $p['value']) ? 'selected' : '' ?>>
+                                <?= esc($p['label']) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label fw-semibold">URL del API (endpoint de sincronización)</label>
                         <input type="url" name="url_api" class="form-control"
                                value="<?= esc($tienda['url_api'] ?? old('url_api')) ?>"

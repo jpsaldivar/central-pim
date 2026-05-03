@@ -21,14 +21,24 @@ class Tiendas extends Controller
         ]);
     }
 
+    private function getPlatforms(): array
+    {
+        $config = json_decode(file_get_contents(APPPATH . 'Config/platforms.json'), true);
+        return $config['platforms'];
+    }
+
     public function create()
     {
-        return view('tiendas/form', ['title' => 'Nueva Tienda', 'tienda' => null]);
+        return view('tiendas/form', [
+            'title'     => 'Nueva Tienda',
+            'tienda'    => null,
+            'platforms' => $this->getPlatforms(),
+        ]);
     }
 
     public function store()
     {
-        $data = $this->request->getPost(['nombre', 'url_api', 'token_auth']);
+        $data = $this->request->getPost(['nombre', 'plataforma', 'url_api', 'token_auth']);
         if (!$this->model->insert($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
@@ -39,12 +49,16 @@ class Tiendas extends Controller
     {
         $tienda = $this->model->find($id);
         if (!$tienda) return redirect()->to(site_url('tiendas'))->with('error', 'Tienda no encontrada.');
-        return view('tiendas/form', ['title' => 'Editar Tienda', 'tienda' => $tienda]);
+        return view('tiendas/form', [
+            'title'     => 'Editar Tienda',
+            'tienda'    => $tienda,
+            'platforms' => $this->getPlatforms(),
+        ]);
     }
 
     public function update(int $id)
     {
-        $data = $this->request->getPost(['nombre', 'url_api', 'token_auth']);
+        $data = $this->request->getPost(['nombre', 'plataforma', 'url_api', 'token_auth']);
         if (!$this->model->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }

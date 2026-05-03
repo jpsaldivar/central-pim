@@ -1,0 +1,7 @@
+{
+    "platforms": [
+        { "value": "woocommerce", "label": "WooCommerce" },
+        { "value": "jumpseller", "label": "Jumpseller" },
+        { "value": "otro", "label": "Otro" }
+    ]
+}
