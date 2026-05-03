@@ -12,6 +12,7 @@ class ProductDTO
     public string $sku = '';
     public string $name = '';
     public string $description = '';
+    public string $brand = '';
     public string $regularPrice = '0';
     public string $salePrice = '';
     public int $stockQuantity = 0;
@@ -45,6 +46,7 @@ class ProductDTO
         $dto->salePrice = isset($product['sale_price']) && $product['sale_price'] > 0
             ? (string)$product['sale_price']
             : '';
+        $dto->brand = trim((string)($product['brand'] ?? ''));
         $dto->stockQuantity = (int)($product['stock'] ?? 0);
         $dto->manageStock = (bool)($product['stock_management'] ?? true);
         $dto->status = ($product['status'] ?? 'available') === 'available' ? 'publish' : 'draft';
@@ -119,6 +121,20 @@ class ProductDTO
             }
         } else {
             $data['attributes'] = $this->attributes;
+        }
+
+        if ($this->brand !== '') {
+            $brandAttr = [
+                'name'      => 'Marca',
+                'options'   => [$this->brand],
+                'variation' => false,
+                'visible'   => true,
+            ];
+            if (isset($data['attributes'])) {
+                $data['attributes'][] = $brandAttr;
+            } else {
+                $data['attributes'] = [$brandAttr];
+            }
         }
 
         return $data;

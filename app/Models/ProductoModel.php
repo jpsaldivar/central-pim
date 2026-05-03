@@ -198,6 +198,13 @@ class ProductoModel extends Model
             }
         }
 
+        // Resolver marca desde el DTO (find-or-create con normalización)
+        $marcaId = null;
+        if (!empty($dto->brand)) {
+            $marcaModel = model('App\Models\MarcaModel');
+            $marcaId = $marcaModel->findOrCreateByName($dto->brand);
+        }
+
         // Datos base del producto — precios y stock vienen de Jumpseller como referencia general
         $productoData = [
             'sku'           => $dto->sku ?: null,
@@ -206,7 +213,7 @@ class ProductoModel extends Model
             'precio_oferta' => $dto->salePrice !== '' ? (float)$dto->salePrice : null,
             'costo'         => 0,
             'stock_general' => $dto->stockQuantity,
-            'marca_id'      => null,
+            'marca_id'      => $marcaId,
             'proveedor_id'  => null,
         ];
 
