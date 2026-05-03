@@ -125,3 +125,35 @@ WHERE NOT EXISTS (
   SELECT 1 FROM `migrations`
   WHERE `class` = 'App\\Database\\Migrations\\AddStockIlimitadoToProductos'
 );
+
+-- ============================================================
+-- Tabla: tiendas — nuevo campo plataforma
+-- Indica la plataforma de e-commerce a la que pertenece la
+-- tienda (woocommerce, jumpseller, otro).
+-- El listado de opciones válidas se gestiona en:
+--   app/Config/platforms.json
+-- Equivalente a la migración:
+--   2024-01-05-000001_AddPlataformaToTiendas.php
+-- ============================================================
+
+ALTER TABLE `tiendas`
+  ADD COLUMN `plataforma` VARCHAR(50) NULL DEFAULT NULL
+    COMMENT 'Plataforma de la tienda (woocommerce, jumpseller, otro)'
+  AFTER `nombre`;
+
+-- ============================================================
+-- Registrar la migración en la tabla de control de CodeIgniter
+-- ============================================================
+
+INSERT INTO `migrations` (`version`, `class`, `group`, `namespace`, `time`, `batch`)
+SELECT
+  '2024-01-05-000001',
+  'App\\Database\\Migrations\\AddPlataformaToTiendas',
+  'default',
+  'App',
+  UNIX_TIMESTAMP(),
+  COALESCE((SELECT MAX(batch) FROM migrations m2), 0) + 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM `migrations`
+  WHERE `class` = 'App\\Database\\Migrations\\AddPlataformaToTiendas'
+);
