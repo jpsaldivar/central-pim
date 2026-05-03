@@ -17,21 +17,32 @@ use GuzzleHttp\Exception\GuzzleException;
 class WooCommerceAdapter implements IntegrationInterface
 {
     private Client $client;
+    private Client $clientV2;  // Para endpoints de plugins que solo están en v2 (ej. brands)
     private const MAX_BATCH = 100;
 
     public function __construct(string $storeUrl, string $consumerKey, string $consumerSecret)
     {
-        $baseUri = rtrim($storeUrl, '/') . '/wp-json/wc/v3/';
+        $base = rtrim($storeUrl, '/');
+        $auth = [$consumerKey, $consumerSecret];
+        $headers = [
+            'Accept'       => 'application/json',
+            'Content-Type' => 'application/json',
+        ];
 
         $this->client = new Client([
-            'base_uri' => $baseUri,
-            'auth'     => [$consumerKey, $consumerSecret],
-            'headers'  => [
-                'Accept'       => 'application/json',
-                'Content-Type' => 'application/json',
-            ],
-            'timeout' => 60,
-            'verify'  => true,
+            'base_uri' => $base . '/wp-json/wc/v3/',
+            'auth'     => $auth,
+            'headers'  => $headers,
+            'timeout'  => 60,
+            'verify'   => true,
+        ]);
+
+        $this->clientV2 = new Client([
+            'base_uri' => $base . '/wp-json/wc/v2/',
+            'auth'     => $auth,
+            'headers'  => $headers,
+            'timeout'  => 60,
+            'verify'   => true,
         ]);
     }
 
@@ -182,10 +193,14 @@ class WooCommerceAdapter implements IntegrationInterface
      * Busca una marca por nombre exacto en WooCommerce; si no existe, la crea.
      * Devuelve el ID de WooCommerce o null en caso de error.
      */
+    /**
+     * Busca una marca por nombre en WooCommerce (API v2 del plugin de brands);
+     * si no existe, la crea. Devuelve el ID de WooCommerce o null en caso de error.
+     */
     public function findOrCreateBrand(string $nombre): ?int
     {
         try {
-            $response = $this->client->get('products/brands', [
+            $response = $this->clientV2->get('products/brands', [
                 'query' => ['search' => $nombre, 'per_page' => 10],
             ]);
             $brands = json_decode($response->getBody()->getContents(), true) ?? [];
@@ -197,7 +212,7 @@ class WooCommerceAdapter implements IntegrationInterface
             }
 
             // No existe — crear
-            $response = $this->client->post('products/brands', [
+            $response = $this->clientV2->post('products/brands', [
                 'json' => ['name' => $nombre],
             ]);
             $created = json_decode($response->getBody()->getContents(), true);
