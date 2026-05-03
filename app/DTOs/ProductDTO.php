@@ -13,6 +13,7 @@ class ProductDTO
     public string $name = '';
     public string $description = '';
     public string $brand = '';
+    public int    $wooCommerceBrandId = 0;
     public string $regularPrice = '0';
     public string $salePrice = '';
     public int $stockQuantity = 0;
@@ -123,18 +124,8 @@ class ProductDTO
             $data['attributes'] = $this->attributes;
         }
 
-        if ($this->brand !== '') {
-            $brandAttr = [
-                'name'      => 'Marca',
-                'options'   => [$this->brand],
-                'variation' => false,
-                'visible'   => true,
-            ];
-            if (isset($data['attributes'])) {
-                $data['attributes'][] = $brandAttr;
-            } else {
-                $data['attributes'] = [$brandAttr];
-            }
+        if ($this->wooCommerceBrandId > 0) {
+            $data['brands'] = [$this->wooCommerceBrandId];
         }
 
         return $data;

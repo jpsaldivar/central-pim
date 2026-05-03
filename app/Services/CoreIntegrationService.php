@@ -59,6 +59,8 @@ class CoreIntegrationService
         $variableProducts = [];
         // SKU → producto_id interno (construido en Fase 1)
         $skuToProductoId  = [];
+        // Caché local: nombre de marca normalizado → WooCommerce brand ID
+        $brandIdCache     = [];
 
         foreach ($dtos as $dto) {
             if (empty($dto->sku)) {
@@ -72,6 +74,17 @@ class CoreIntegrationService
                 $productoId = $this->productoModel->upsertFromDto($dto, $this->jumpsellerTiendaId);
                 if ($productoId) {
                     $skuToProductoId[$dto->sku] = $productoId;
+                }
+            }
+
+            // Resolver brand ID de WooCommerce (con caché para no llamar la API por cada producto)
+            if ($dto->brand !== '') {
+                $cacheKey = mb_strtoupper(trim($dto->brand));
+                if (!array_key_exists($cacheKey, $brandIdCache)) {
+                    $brandIdCache[$cacheKey] = $woo->findOrCreateBrand($dto->brand);
+                }
+                if ($brandIdCache[$cacheKey] !== null) {
+                    $dto->wooCommerceBrandId = $brandIdCache[$cacheKey];
                 }
             }
 

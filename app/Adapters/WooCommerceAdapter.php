@@ -178,6 +178,36 @@ class WooCommerceAdapter implements IntegrationInterface
         }
     }
 
+    /**
+     * Busca una marca por nombre exacto en WooCommerce; si no existe, la crea.
+     * Devuelve el ID de WooCommerce o null en caso de error.
+     */
+    public function findOrCreateBrand(string $nombre): ?int
+    {
+        try {
+            $response = $this->client->get('products/brands', [
+                'query' => ['search' => $nombre, 'per_page' => 10],
+            ]);
+            $brands = json_decode($response->getBody()->getContents(), true) ?? [];
+
+            foreach ($brands as $brand) {
+                if (mb_strtoupper(trim($brand['name'] ?? '')) === mb_strtoupper(trim($nombre))) {
+                    return (int)$brand['id'];
+                }
+            }
+
+            // No existe — crear
+            $response = $this->client->post('products/brands', [
+                'json' => ['name' => $nombre],
+            ]);
+            $created = json_decode($response->getBody()->getContents(), true);
+            return !empty($created['id']) ? (int)$created['id'] : null;
+        } catch (GuzzleException $e) {
+            log_message('error', '[WooCommerceAdapter::findOrCreateBrand] ' . $nombre . ' ' . $e->getMessage());
+            return null;
+        }
+    }
+
     private function sendBatch(array $toCreate, array $toUpdate): array
     {
         try {
