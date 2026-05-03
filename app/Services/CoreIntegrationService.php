@@ -59,6 +59,8 @@ class CoreIntegrationService
         $variableProducts = [];
         // SKU → producto_id interno (construido en Fase 1)
         $skuToProductoId  = [];
+        // SKU → bool: true si el producto fue creado nuevo en Fase 1
+        $skuToIsNew       = [];
         // Caché local: nombre de marca normalizado → WooCommerce brand ID
         $brandIdCache     = [];
 
@@ -71,9 +73,10 @@ class CoreIntegrationService
 
             // --- Fase 1: sync catálogo interno ---
             if ($this->productoModel && $this->jumpsellerTiendaId) {
-                $productoId = $this->productoModel->upsertFromDto($dto, $this->jumpsellerTiendaId);
-                if ($productoId) {
-                    $skuToProductoId[$dto->sku] = $productoId;
+                $upsertResult = $this->productoModel->upsertFromDto($dto, $this->jumpsellerTiendaId);
+                if ($upsertResult['id']) {
+                    $skuToProductoId[$dto->sku] = $upsertResult['id'];
+                    $skuToIsNew[$dto->sku]       = $upsertResult['isNew'];
                 }
             }
 
@@ -111,11 +114,14 @@ class CoreIntegrationService
             }
 
             // --- Fase 3a: guardar WooCommerce external_id para productos simples ---
+            // Productos nuevos: se inserta el registro en producto_tienda (activa la tienda WooCommerce).
+            // Productos existentes: solo se actualiza si el registro ya existía (no altera disponibilidad).
             if ($this->productoModel && $this->wooTiendaId && !empty($result['id_map'])) {
                 foreach ($result['id_map'] as $sku => $wooId) {
                     $productoId = $skuToProductoId[$sku] ?? null;
                     if ($productoId) {
-                        $this->productoModel->setExternalId($productoId, $this->wooTiendaId, (string)$wooId);
+                        $isNew = $skuToIsNew[$sku] ?? false;
+                        $this->productoModel->setExternalId($productoId, $this->wooTiendaId, (string)$wooId, $isNew);
                     }
                 }
             }
@@ -133,13 +139,16 @@ class CoreIntegrationService
             $summary[$result['action']]++;
 
             // Fase 3b: guardar WooCommerce external_id del producto variable
+            // Misma lógica que 3a: insertar solo si es producto nuevo.
             if ($this->productoModel && $this->wooTiendaId && !empty($result['woo_id'])) {
                 $productoId = $skuToProductoId[$dto->sku] ?? null;
                 if ($productoId) {
+                    $isNew = $skuToIsNew[$dto->sku] ?? false;
                     $this->productoModel->setExternalId(
                         $productoId,
                         $this->wooTiendaId,
-                        (string)$result['woo_id']
+                        (string)$result['woo_id'],
+                        $isNew
                     );
                 }
             }

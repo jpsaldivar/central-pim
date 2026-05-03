@@ -158,15 +158,16 @@ class ProductoModel extends Model
      *
      * Estrategia de matching (en orden):
      *   1. Por external_id en producto_tienda del tienda Jumpseller (más confiable)
-     *   2. Por nombre exacto en productos
-     *   3. Si no existe: crea uno nuevo
+     *   2. Por SKU
+     *   3. Por nombre exacto en productos
+     *   4. Si no existe: crea uno nuevo
      *
      * Siempre deja el producto habilitado en la tienda Jumpseller con su external_id.
      * Precios y stock del DTO se usan como valores base del sistema.
      *
-     * Devuelve el producto_id interno.
+     * Devuelve array ['id' => int, 'isNew' => bool].
      */
-    public function upsertFromDto(ProductDTO $dto, int $jumpsellerTiendaId): int
+    public function upsertFromDto(ProductDTO $dto, int $jumpsellerTiendaId): array
     {
         $db = \Config\Database::connect();
         $productoId = null;
@@ -218,6 +219,8 @@ class ProductoModel extends Model
             'proveedor_id'    => null,
         ];
 
+        $isNew = ($productoId === null);
+
         if ($productoId) {
             $this->update($productoId, $productoData);
         } else {
@@ -249,7 +252,7 @@ class ProductoModel extends Model
             }
         }
 
-        return $productoId;
+        return ['id' => $productoId, 'isNew' => $isNew];
     }
 
     /**
@@ -426,8 +429,11 @@ class ProductoModel extends Model
      * Guarda el ID externo de un producto en una tienda específica.
      * Llamado por el sistema de migración/sync tras crear o actualizar
      * el producto en la plataforma destino.
+     *
+     * Si $insertIfMissing es true y el registro no existe, lo crea (activa
+     * el producto en esa tienda). Usar solo para productos recién creados.
      */
-    public function setExternalId(int $productoId, int $tiendaId, string $externalId): void
+    public function setExternalId(int $productoId, int $tiendaId, string $externalId, bool $insertIfMissing = false): void
     {
         $db = \Config\Database::connect();
 
@@ -441,6 +447,15 @@ class ProductoModel extends Model
                 ->where('producto_id', $productoId)
                 ->where('tienda_id', $tiendaId)
                 ->update(['external_id' => $externalId]);
+        } elseif ($insertIfMissing) {
+            $db->table('producto_tienda')->insert([
+                'producto_id'      => $productoId,
+                'tienda_id'        => $tiendaId,
+                'external_id'      => $externalId,
+                'valor_especifico' => null,
+                'valor_oferta_esp' => null,
+                'stock_especifico' => null,
+            ]);
         }
     }
 }
