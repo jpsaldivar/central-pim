@@ -197,13 +197,20 @@ class WooCommerceAdapter implements IntegrationInterface
      * Busca una marca por nombre en WooCommerce (API v2 del plugin de brands);
      * si no existe, la crea. Devuelve el ID de WooCommerce o null en caso de error.
      */
+    /**
+     * Busca una marca por nombre en WooCommerce (API v2 del plugin de brands);
+     * si no existe, la crea. Devuelve el ID de WooCommerce o null en caso de error.
+     */
     public function findOrCreateBrand(string $nombre): ?int
     {
         try {
             $response = $this->clientV2->get('products/brands', [
                 'query' => ['search' => $nombre, 'per_page' => 10],
             ]);
-            $brands = json_decode($response->getBody()->getContents(), true) ?? [];
+            $statusGet = $response->getStatusCode();
+            $bodyGet   = $response->getBody()->getContents();
+            log_message('error', "[WooCommerceAdapter::findOrCreateBrand] GET status={$statusGet} body={$bodyGet}");
+            $brands = json_decode($bodyGet, true) ?? [];
 
             foreach ($brands as $brand) {
                 if (mb_strtoupper(trim($brand['name'] ?? '')) === mb_strtoupper(trim($nombre))) {
@@ -215,7 +222,10 @@ class WooCommerceAdapter implements IntegrationInterface
             $response = $this->clientV2->post('products/brands', [
                 'json' => ['name' => $nombre],
             ]);
-            $created = json_decode($response->getBody()->getContents(), true);
+            $statusPost = $response->getStatusCode();
+            $bodyPost   = $response->getBody()->getContents();
+            log_message('error', "[WooCommerceAdapter::findOrCreateBrand] POST status={$statusPost} body={$bodyPost}");
+            $created = json_decode($bodyPost, true);
             return !empty($created['id']) ? (int)$created['id'] : null;
         } catch (GuzzleException $e) {
             log_message('error', '[WooCommerceAdapter::findOrCreateBrand] ' . $nombre . ' ' . $e->getMessage());
