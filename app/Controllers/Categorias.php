@@ -74,4 +74,22 @@ class Categorias extends Controller
         $this->model->delete($id);
         return redirect()->to(site_url('categorias'))->with('success', 'Categoría eliminada.');
     }
+
+    public function bulkDelete()
+    {
+        $ids = $this->request->getPost('ids');
+
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->to(site_url('categorias'))->with('error', 'No se seleccionaron categorías.');
+        }
+
+        $ids = array_map('intval', $ids);
+
+        // Desasignar hijos de las categorías a eliminar
+        $this->model->whereIn('parent_id', $ids)->set(['parent_id' => null])->update();
+        $this->model->whereIn('id', $ids)->delete();
+
+        return redirect()->to(site_url('categorias'))
+            ->with('success', count($ids) . ' categoría(s) eliminada(s) correctamente.');
+    }
 }

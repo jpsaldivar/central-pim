@@ -185,6 +185,14 @@ class Productos extends Controller
                 }
                 return redirect()->to(site_url('productos'))->with('success', $msg);
 
+            case 'eliminar':
+                $db = \Config\Database::connect();
+                $db->table('producto_categoria')->whereIn('producto_id', $ids)->delete();
+                $db->table('producto_tienda')->whereIn('producto_id', $ids)->delete();
+                $this->model->whereIn('id', $ids)->delete();
+                return redirect()->to(site_url('productos'))
+                    ->with('success', count($ids) . ' producto(s) eliminado(s) correctamente.');
+
             default:
                 return redirect()->to(site_url('productos'))->with('error', 'Acción no reconocida.');
         }

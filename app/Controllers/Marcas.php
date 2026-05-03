@@ -56,4 +56,19 @@ class Marcas extends Controller
         $this->model->delete($id);
         return redirect()->to(site_url('marcas'))->with('success', 'Marca eliminada.');
     }
+
+    public function bulkDelete()
+    {
+        $ids = $this->request->getPost('ids');
+
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->to(site_url('marcas'))->with('error', 'No se seleccionaron marcas.');
+        }
+
+        $ids = array_map('intval', $ids);
+        $this->model->whereIn('id', $ids)->delete();
+
+        return redirect()->to(site_url('marcas'))
+            ->with('success', count($ids) . ' marca(s) eliminada(s) correctamente.');
+    }
 }

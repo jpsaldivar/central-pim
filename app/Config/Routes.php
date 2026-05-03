@@ -19,6 +19,7 @@ $routes->post('/marcas/store', 'Marcas::store');
 $routes->get('/marcas/edit/(:num)', 'Marcas::edit/$1');
 $routes->post('/marcas/update/(:num)', 'Marcas::update/$1');
 $routes->get('/marcas/delete/(:num)', 'Marcas::delete/$1');
+$routes->post('/marcas/bulk', 'Marcas::bulkDelete');
 
 // Proveedores
 $routes->get('/proveedores', 'Proveedores::index');
@@ -35,6 +36,7 @@ $routes->post('/categorias/store', 'Categorias::store');
 $routes->get('/categorias/edit/(:num)', 'Categorias::edit/$1');
 $routes->post('/categorias/update/(:num)', 'Categorias::update/$1');
 $routes->get('/categorias/delete/(:num)', 'Categorias::delete/$1');
+$routes->post('/categorias/bulk', 'Categorias::bulkDelete');
 
 // Tiendas
 $routes->get('/tiendas', 'Tiendas::index');

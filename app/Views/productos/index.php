@@ -68,6 +68,10 @@
                         onclick="abrirModalTienda()">
                     <i class="bi bi-shop me-1"></i>Activar en tienda
                 </button>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="abrirModalEliminar()">
+                    <i class="bi bi-trash me-1"></i>Eliminar
+                </button>
             </div>
         </div>
 
@@ -271,6 +275,36 @@
     </div>
 </div>
 
+<!-- Modal: Eliminar productos -->
+<div class="modal fade" id="modalEliminar" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-danger">
+                <h6 class="modal-title fw-semibold text-danger" id="modalEliminarLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Eliminar Productos
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">
+                    Estás a punto de eliminar permanentemente
+                    <strong><span class="modal-count">0</span></strong> producto(s) de la base de datos local.
+                </p>
+                <p class="text-danger small mb-0">
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    Esta acción no se puede deshacer. Se eliminarán también sus relaciones con categorías y tiendas.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarEliminar()">
+                    <i class="bi bi-trash me-1"></i>Eliminar definitivamente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -381,6 +415,19 @@ function confirmarActivarTienda() {
     document.getElementById('bulk-tienda-id').value = tiendaId;
     prepararFormulario('activar_tienda');
     bootstrap.Modal.getInstance(document.getElementById('modalTienda')).hide();
+    document.getElementById('bulk-form').submit();
+}
+
+// Abrir modal de eliminación masiva
+function abrirModalEliminar() {
+    if (getCheckedIds().length === 0) return;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEliminar')).show();
+}
+
+// Confirmar eliminación masiva
+function confirmarEliminar() {
+    prepararFormulario('eliminar');
+    bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
     document.getElementById('bulk-form').submit();
 }
 </script>
