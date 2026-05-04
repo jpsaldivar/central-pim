@@ -105,6 +105,14 @@ class Migraciones extends BaseController
                 ->with('error', "No se pudo obtener el producto #{$row['external_id']} desde Jumpseller.");
         }
 
+        // Usar stock local en lugar del stock de Jumpseller, ya que el usuario puede
+        // haber modificado stock/stock_ilimitado en el catálogo interno.
+        $localProducto = (new \App\Models\ProductoModel())->find($productoId);
+        if ($localProducto) {
+            $dto->manageStock   = !(bool)($localProducto['stock_ilimitado'] ?? false);
+            $dto->stockQuantity = $dto->manageStock ? (int)($localProducto['stock_general'] ?? 0) : 0;
+        }
+
         $cis = new CoreIntegrationService(
             $this->logModel,
             new ProductoModel(),
