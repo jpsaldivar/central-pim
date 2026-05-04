@@ -178,6 +178,151 @@ class Migraciones extends BaseController
             ->with('success', "Producto {$action} correctamente desde Jumpseller.");
     }
 
+    /**
+     * Sincroniza precios y stock de todos los productos desde Jumpseller hacia el catálogo
+     * interno y WooCommerce. No sube imágenes. Vincula el ID de WooCommerce si faltaba.
+     *
+     * Mapeo de precios (Jumpseller → local):
+     *   compare_at_price → precio (precio original)
+     *   price            → precio_oferta (precio de venta/oferta)
+     *   Si no hay compare_at_price: price → precio, sin precio_oferta.
+     */
+    public function sincronizarInventario()
+    {
+        if ($error = $this->checkCredentials()) {
+            return redirect()->to(site_url('migraciones'))->with('error', $error);
+        }
+
+        $db          = \Config\Database::connect();
+        $jsTiendaId  = $this->connectionManager->getJumpsellerTiendaId();
+        $wooTiendaId = $this->connectionManager->getWooCommerceTiendaId();
+        $jsAdapter   = $this->connectionManager->makeJumpsellerAdapter();
+        $wooAdapter  = $this->connectionManager->makeWooCommerceAdapter();
+
+        $limit         = 50;
+        $page          = 1;
+        $updated       = 0;
+        $idsVinculados = 0;
+        $skipped       = 0;
+        $errors        = 0;
+
+        do {
+            $products = $jsAdapter->fetchProductsRaw($page, $limit);
+
+            foreach ($products as $product) {
+                $jsId = (int)($product['id'] ?? 0);
+                if (!$jsId) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Buscar producto interno vinculado por external_id de Jumpseller
+                $ptJs = $db->table('producto_tienda')
+                    ->where('tienda_id', $jsTiendaId)
+                    ->where('external_id', (string)$jsId)
+                    ->get()->getRowArray();
+
+                if (!$ptJs) {
+                    $skipped++;
+                    continue;
+                }
+
+                $productoId = (int)$ptJs['producto_id'];
+
+                // Mapeo de precios: compare_at_price es el precio original en Jumpseller;
+                // price es el precio de venta (oferta). Si no hay compare_at_price,
+                // price pasa a ser el precio regular sin oferta.
+                $jsPrice        = isset($product['price']) ? (float)$product['price'] : null;
+                $jsComparePrice = isset($product['compare_at_price']) && (float)$product['compare_at_price'] > 0
+                    ? (float)$product['compare_at_price']
+                    : null;
+
+                if ($jsComparePrice !== null) {
+                    $precio       = $jsComparePrice;
+                    $precioOferta = $jsPrice;
+                } else {
+                    $precio       = $jsPrice ?? 0.0;
+                    $precioOferta = null;
+                }
+
+                // Stock: stock_management=false o stock=null → stock ilimitado
+                $stockValue    = $product['stock'] ?? null;
+                $manageStock   = (bool)($product['stock_management'] ?? true) && $stockValue !== null;
+                $stockQuantity = $manageStock ? (int)$stockValue : 0;
+
+                // Actualizar catálogo interno
+                $db->table('productos')->where('id', $productoId)->update([
+                    'precio'          => $precio,
+                    'precio_oferta'   => $precioOferta,
+                    'stock_general'   => $stockQuantity,
+                    'stock_ilimitado' => $manageStock ? 0 : 1,
+                ]);
+
+                // Payload para WooCommerce (sin imágenes)
+                $wooPayload = [
+                    'regular_price' => (string)$precio,
+                    'sale_price'    => $precioOferta !== null ? (string)$precioOferta : '',
+                    'manage_stock'  => $manageStock,
+                ];
+                if ($manageStock) {
+                    $wooPayload['stock_quantity'] = $stockQuantity;
+                } else {
+                    $wooPayload['stock_status'] = 'instock';
+                }
+
+                // Buscar external_id de WooCommerce
+                $ptWoo = $db->table('producto_tienda')
+                    ->where('producto_id', $productoId)
+                    ->where('tienda_id', $wooTiendaId)
+                    ->get()->getRowArray();
+
+                $wooId = !empty($ptWoo['external_id']) ? (int)$ptWoo['external_id'] : null;
+
+                // Si no hay ID de WooCommerce almacenado, buscar por SKU y vincularlo
+                if (!$wooId && !empty($product['sku'])) {
+                    $wooProduct = $wooAdapter->findProductBySku((string)$product['sku']);
+                    if ($wooProduct && !empty($wooProduct['id'])) {
+                        $wooId = (int)$wooProduct['id'];
+                        if ($ptWoo) {
+                            $db->table('producto_tienda')
+                                ->where('producto_id', $productoId)
+                                ->where('tienda_id', $wooTiendaId)
+                                ->update(['external_id' => (string)$wooId]);
+                        } else {
+                            $db->table('producto_tienda')->insert([
+                                'producto_id' => $productoId,
+                                'tienda_id'   => $wooTiendaId,
+                                'external_id' => (string)$wooId,
+                            ]);
+                        }
+                        $idsVinculados++;
+                    }
+                }
+
+                if (!$wooId) {
+                    $skipped++;
+                    continue;
+                }
+
+                $result = $wooAdapter->updateProduct($wooId, $wooPayload);
+                $result ? $updated++ : $errors++;
+            }
+
+            $page++;
+        } while (count($products) === $limit);
+
+        $msg = sprintf(
+            'Inventario sincronizado — Actualizados en WooCommerce: %d, IDs vinculados: %d, Omitidos: %d, Errores: %d.',
+            $updated,
+            $idsVinculados,
+            $skipped,
+            $errors
+        );
+
+        return redirect()->to(site_url('migraciones'))
+            ->with($errors > 0 ? 'error' : 'success', $msg);
+    }
+
     public function syncSkus()
     {
         if (!$this->connectionManager->isJumpsellerConfigured()) {

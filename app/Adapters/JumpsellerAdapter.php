@@ -74,6 +74,40 @@ class JumpsellerAdapter implements IntegrationInterface
     }
 
     /**
+     * Fetch a page of raw product arrays without DTO conversion.
+     * Needed when access to platform-specific fields (e.g. compare_at_price) is required.
+     *
+     * @return array[]
+     */
+    public function fetchProductsRaw(int $page, int $limit): array
+    {
+        try {
+            $response = $this->client->get('products.json', [
+                'query' => [
+                    'limit'  => $limit,
+                    'page'   => $page,
+                    'status' => 'all',
+                ],
+            ]);
+
+            $raw      = json_decode($response->getBody()->getContents(), true) ?? [];
+            $products = [];
+
+            foreach ($raw as $item) {
+                $product = $item['product'] ?? $item;
+                if (!empty($product)) {
+                    $products[] = $product;
+                }
+            }
+
+            return $products;
+        } catch (GuzzleException $e) {
+            log_message('error', "[JumpsellerAdapter::fetchProductsRaw] page={$page} " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Fetch a single product by its Jumpseller ID. Returns a ProductDTO or null on failure.
      */
     public function fetchProductById(int $id): ?ProductDTO

@@ -191,6 +191,29 @@ $initPct  = $hasState
     </div>
 </div>
 
+<!-- Sincronizar Inventario -->
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <h6 class="fw-semibold mb-1">
+            <i class="bi bi-boxes me-2 text-success"></i>Sincronizar inventario desde Jumpseller
+        </h6>
+        <p class="text-muted small mb-3">
+            Actualiza precios y stock de todos los productos internos vinculados a Jumpseller,
+            y refleja los cambios en WooCommerce <strong>sin subir imágenes</strong>.
+            El precio original se toma del campo <em>compara precio</em> de Jumpseller; el precio de venta, del campo <em>precio</em>.
+            Si un producto no tiene ID de WooCommerce almacenado, se busca por SKU y se vincula automáticamente.
+        </p>
+        <form action="<?= site_url('migraciones/sincronizar-inventario') ?>" method="post">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-outline-success"
+                <?= !$canRun ? 'disabled' : '' ?>
+                onclick="return confirm('¿Sincronizar precios y stock de todos los productos desde Jumpseller hacia WooCommerce?');">
+                <i class="bi bi-arrow-repeat me-2"></i>Sincronizar inventario
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- Recent Logs -->
 <?php if (!empty($recent_logs)): ?>
 <div class="card">
