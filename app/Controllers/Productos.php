@@ -130,6 +130,7 @@ class Productos extends Controller
         if ($data['stock_ilimitado']) {
             $data['stock_general'] = 0;
         }
+        $data['id'] = $id;
 
         if (!$this->model->update($id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());

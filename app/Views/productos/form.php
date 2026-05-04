@@ -197,6 +197,12 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-save me-1"></i><?= $producto ? 'Actualizar Producto' : 'Guardar Producto' ?>
                         </button>
+                        <?php if ($producto): ?>
+                        <button type="button" class="btn btn-outline-primary"
+                                onclick="document.getElementById('form-sync-producto').submit()">
+                            <i class="bi bi-arrow-repeat me-1"></i>Sincronizar a WooCommerce
+                        </button>
+                        <?php endif; ?>
                         <a href="/productos" class="btn btn-outline-secondary">Cancelar</a>
                     </div>
                 </div>
@@ -204,6 +210,14 @@
         </div>
     </div>
 </form>
+<?php if ($producto): ?>
+<form id="form-sync-producto"
+      method="POST"
+      action="<?= site_url('migraciones/sync-producto/' . $producto['id']) ?>"
+      onsubmit="return confirm('¿Sincronizar este producto a WooCommerce?')">
+    <?= csrf_field() ?>
+</form>
+<?php endif; ?>
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
 <script>
