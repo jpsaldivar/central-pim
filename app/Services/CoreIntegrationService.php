@@ -146,8 +146,7 @@ class CoreIntegrationService
                 foreach ($result['id_map'] as $sku => $wooId) {
                     $productoId = $skuToProductoId[$sku] ?? null;
                     if ($productoId) {
-                        $isNew = $skuToIsNew[$sku] ?? false;
-                        $this->productoModel->setExternalId($productoId, $this->wooTiendaId, (string)$wooId, $isNew);
+                        $this->productoModel->setExternalId($productoId, $this->wooTiendaId, (string)$wooId, true);
                     }
                 }
             }
@@ -174,7 +173,7 @@ class CoreIntegrationService
                         $productoId,
                         $this->wooTiendaId,
                         (string)$result['woo_id'],
-                        $isNew
+                        true
                     );
                 }
             }

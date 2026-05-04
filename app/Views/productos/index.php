@@ -121,9 +121,13 @@
                     </td>
                     <td>$<?= number_format($p['costo'], 2) ?></td>
                     <td>
-                        <span class="badge <?= $p['stock_general'] > 0 ? 'bg-success' : 'bg-danger' ?>">
-                            <?= $p['stock_general'] ?>
-                        </span>
+                        <?php if ($p['stock_ilimitado']): ?>
+                            <span class="badge bg-success" title="Sin límite de stock">∞</span>
+                        <?php else: ?>
+                            <span class="badge <?= $p['stock_general'] > 0 ? 'bg-success' : 'bg-danger' ?>">
+                                <?= $p['stock_general'] ?>
+                            </span>
+                        <?php endif; ?>
                     </td>
                     <?php foreach ($tiendas as $t): ?>
                     <td class="text-center">
@@ -143,6 +147,15 @@
                         <a href="/productos/edit/<?= $p['id'] ?>" class="btn btn-outline-secondary btn-action me-1">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        <form method="POST" action="<?= site_url('migraciones/sync-producto/' . $p['id']) ?>"
+                              class="d-inline me-1"
+                              onsubmit="return confirm('¿Sincronizar este producto a WooCommerce?')">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-outline-primary btn-action"
+                                    title="Sincronizar a WooCommerce">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </form>
                         <a href="/productos/delete/<?= $p['id'] ?>" class="btn btn-outline-danger btn-action"
                            onclick="return confirm('¿Eliminar este producto?')">
                             <i class="bi bi-trash"></i>

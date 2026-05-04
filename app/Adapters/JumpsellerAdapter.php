@@ -73,6 +73,22 @@ class JumpsellerAdapter implements IntegrationInterface
         }
     }
 
+    /**
+     * Fetch a single product by its Jumpseller ID. Returns a ProductDTO or null on failure.
+     */
+    public function fetchProductById(int $id): ?ProductDTO
+    {
+        try {
+            $response = $this->client->get("products/{$id}.json");
+            $data     = json_decode($response->getBody()->getContents(), true) ?? [];
+            $product  = $data['product'] ?? $data;
+            return !empty($product) ? ProductDTO::fromJumpseller($product) : null;
+        } catch (GuzzleException $e) {
+            log_message('error', "[JumpsellerAdapter::fetchProductById] id={$id} " . $e->getMessage());
+            return null;
+        }
+    }
+
     public function findProductBySku(string $sku): ?array
     {
         try {

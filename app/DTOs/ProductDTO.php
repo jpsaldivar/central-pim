@@ -51,8 +51,15 @@ class ProductDTO
             ? (string)$product['sale_price']
             : '';
         $dto->brand = trim((string)($product['brand'] ?? ''));
-        $dto->stockQuantity = (int)($product['stock'] ?? 0);
-        $dto->manageStock = (bool)($product['stock_management'] ?? true);
+
+        // Jumpseller represents unlimited/infinite stock in two ways:
+        //   a) stock_management = false  → no stock tracking
+        //   b) stock = null              → no quantity limit
+        // In both cases we mark the product as unmanaged (no stock limit).
+        $stockValue      = $product['stock'] ?? null;
+        $stockManagement = $product['stock_management'] ?? true;
+        $dto->manageStock   = (bool)$stockManagement && $stockValue !== null;
+        $dto->stockQuantity = $dto->manageStock ? (int)$stockValue : 0;
         $dto->status = ($product['status'] ?? 'available') === 'available' ? 'publish' : 'draft';
 
         foreach ($product['categories'] ?? [] as $cat) {

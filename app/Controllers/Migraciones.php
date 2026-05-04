@@ -73,6 +73,58 @@ class Migraciones extends BaseController
             ->with('success', 'Estado de migración limpiado. Puedes iniciar una nueva migración.');
     }
 
+    /**
+     * Sync a single product (by internal producto_id) from Jumpseller to WooCommerce.
+     * Runs the same 3-phase logic as the full migration but for one product.
+     */
+    public function syncProducto(int $productoId)
+    {
+        if ($error = $this->checkCredentials()) {
+            return redirect()->back()->with('error', $error);
+        }
+
+        $db     = \Config\Database::connect();
+        $jsTiendaId = $this->connectionManager->getJumpsellerTiendaId();
+
+        // Look up the Jumpseller external_id for this product
+        $row = $db->table('producto_tienda')
+            ->where('producto_id', $productoId)
+            ->where('tienda_id', $jsTiendaId)
+            ->get()->getRowArray();
+
+        if (!$row || empty($row['external_id'])) {
+            return redirect()->back()
+                ->with('error', "Producto #{$productoId} no tiene external_id de Jumpseller vinculado.");
+        }
+
+        $jsAdapter = $this->connectionManager->makeJumpsellerAdapter();
+        $dto       = $jsAdapter->fetchProductById((int)$row['external_id']);
+
+        if (!$dto) {
+            return redirect()->back()
+                ->with('error', "No se pudo obtener el producto #{$row['external_id']} desde Jumpseller.");
+        }
+
+        $cis = new CoreIntegrationService(
+            $this->logModel,
+            new ProductoModel(),
+            $jsTiendaId,
+            $this->connectionManager->getWooCommerceTiendaId()
+        );
+
+        $result = $cis->syncToWooCommerce([$dto], $this->connectionManager->makeWooCommerceAdapter());
+
+        $msg = sprintf(
+            'Producto sincronizado — Creados: %d, Actualizados: %d, Errores: %d.',
+            $result['created'],
+            $result['updated'],
+            $result['errors']
+        );
+
+        return redirect()->back()
+            ->with($result['errors'] > 0 ? 'error' : 'success', $msg);
+    }
+
     public function syncSkus()
     {
         if (!$this->connectionManager->isJumpsellerConfigured()) {
