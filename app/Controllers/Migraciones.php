@@ -125,6 +125,51 @@ class Migraciones extends BaseController
             ->with($result['errors'] > 0 ? 'error' : 'success', $msg);
     }
 
+    /**
+     * Pull a single product from Jumpseller and update the internal catalog only.
+     * Does NOT push to WooCommerce.
+     */
+    public function syncDesdeJumpseller(int $productoId)
+    {
+        if (!$this->connectionManager->isJumpsellerConfigured()) {
+            return redirect()->back()
+                ->with('error', 'Credenciales de Jumpseller no configuradas en .env');
+        }
+
+        $db         = \Config\Database::connect();
+        $jsTiendaId = $this->connectionManager->getJumpsellerTiendaId();
+
+        $row = $db->table('producto_tienda')
+            ->where('producto_id', $productoId)
+            ->where('tienda_id', $jsTiendaId)
+            ->get()->getRowArray();
+
+        if (!$row || empty($row['external_id'])) {
+            return redirect()->back()
+                ->with('error', "Producto #{$productoId} no tiene external_id de Jumpseller vinculado.");
+        }
+
+        $jsAdapter = $this->connectionManager->makeJumpsellerAdapter();
+        $dto       = $jsAdapter->fetchProductById((int)$row['external_id']);
+
+        if (!$dto) {
+            return redirect()->back()
+                ->with('error', "No se pudo obtener el producto #{$row['external_id']} desde Jumpseller.");
+        }
+
+        $productoModel = new \App\Models\ProductoModel();
+        $result        = $productoModel->upsertFromDto($dto, $jsTiendaId);
+
+        if (!$result['id']) {
+            return redirect()->back()
+                ->with('error', 'Error al actualizar el producto en el catálogo interno.');
+        }
+
+        $action = $result['isNew'] ? 'creado' : 'actualizado';
+        return redirect()->back()
+            ->with('success', "Producto {$action} correctamente desde Jumpseller.");
+    }
+
     public function syncSkus()
     {
         if (!$this->connectionManager->isJumpsellerConfigured()) {

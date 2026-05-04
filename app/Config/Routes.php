@@ -70,3 +70,4 @@ $routes->get('/migraciones/progreso', 'Migraciones::progreso');
 $routes->get('/migraciones/logs', 'Migraciones::logs');
 $routes->post('/migraciones/sync-skus', 'Migraciones::syncSkus');
 $routes->post('/migraciones/sync-producto/(:num)', 'Migraciones::syncProducto/$1');
+$routes->post('/migraciones/sync-desde-jumpseller/(:num)', 'Migraciones::syncDesdeJumpseller/$1');

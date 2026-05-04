@@ -202,6 +202,10 @@
                                 onclick="document.getElementById('form-sync-producto').submit()">
                             <i class="bi bi-arrow-repeat me-1"></i>Sincronizar a WooCommerce
                         </button>
+                        <button type="button" class="btn btn-outline-warning"
+                                onclick="document.getElementById('form-sync-desde-jumpseller').submit()">
+                            <i class="bi bi-cloud-download me-1"></i>Sincronizar desde Jumpseller
+                        </button>
                         <?php endif; ?>
                         <a href="/productos" class="btn btn-outline-secondary">Cancelar</a>
                     </div>
@@ -215,6 +219,12 @@
       method="POST"
       action="<?= site_url('migraciones/sync-producto/' . $producto['id']) ?>"
       onsubmit="return confirm('¿Sincronizar este producto a WooCommerce?')">
+    <?= csrf_field() ?>
+</form>
+<form id="form-sync-desde-jumpseller"
+      method="POST"
+      action="<?= site_url('migraciones/sync-desde-jumpseller/' . $producto['id']) ?>"
+      onsubmit="return confirm('¿Actualizar este producto con los datos de Jumpseller?')">
     <?= csrf_field() ?>
 </form>
 <?php endif; ?>
