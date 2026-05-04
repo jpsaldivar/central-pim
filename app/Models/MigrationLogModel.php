@@ -106,6 +106,55 @@ class MigrationLogModel extends Model
         ]);
     }
 
+    // -------------------------------------------------------------------------
+    // Checkpoint helpers for inventory sync (accion prefix: inv_)
+
+    public function getInventarioCheckpoint(): ?array
+    {
+        $row = $this->whereIn('accion', ['inv_checkpoint', 'inv_checkpoint_cleared'])
+                    ->orderBy('id', 'DESC')
+                    ->first();
+
+        if (!$row || $row['accion'] === 'inv_checkpoint_cleared') {
+            return null;
+        }
+
+        $state = json_decode($row['mensaje'], true);
+        if (is_array($state)) {
+            $state['last_update'] = $row['created_at'];
+        }
+
+        return $state;
+    }
+
+    public function saveInventarioCheckpoint(array $state): void
+    {
+        $this->insert([
+            'tipo'            => 'inventario_sync',
+            'sku'             => '',
+            'nombre_producto' => 'SISTEMA',
+            'accion'          => 'inv_checkpoint',
+            'estado'          => 'info',
+            'mensaje'         => json_encode($state),
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function clearInventarioCheckpoint(): void
+    {
+        $this->insert([
+            'tipo'            => 'inventario_sync',
+            'sku'             => '',
+            'nombre_producto' => 'SISTEMA',
+            'accion'          => 'inv_checkpoint_cleared',
+            'estado'          => 'info',
+            'mensaje'         => 'Sincronización de inventario completada o reiniciada.',
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
+
     /**
      * Count log entries by estado since the last migration start.
      */

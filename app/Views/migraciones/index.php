@@ -2,10 +2,14 @@
 <?= $this->section('content') ?>
 
 <?php
-$canRun   = $jumpseller_ok && $woocommerce_ok;
-$hasState = !empty($migration_state) && ($migration_state['status'] === 'in_progress');
-$initPct  = $hasState
+$canRun        = $jumpseller_ok && $woocommerce_ok;
+$hasState      = !empty($migration_state) && ($migration_state['status'] === 'in_progress');
+$initPct       = $hasState
     ? (int)round(($migration_state['last_completed_page'] / max($migration_state['total_pages'], 1)) * 100)
+    : 0;
+$hasInvState   = !empty($inventario_state) && ($inventario_state['status'] === 'in_progress');
+$initInvPct    = $hasInvState
+    ? (int)round(($inventario_state['last_completed_page'] / max($inventario_state['total_pages'], 1)) * 100)
     : 0;
 ?>
 
@@ -192,6 +196,45 @@ $initPct  = $hasState
 </div>
 
 <!-- Sincronizar Inventario -->
+
+<!-- Bloque de progreso de sincronización de inventario -->
+<div id="inv-progreso-bloque" class="card mb-4 <?= $hasInvState ? '' : 'd-none' ?>">
+    <div class="card-body p-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="fw-semibold mb-0">
+                <span class="me-2">
+                    <?= $hasInvState ? '<i class="bi bi-arrow-repeat text-success" id="inv-spin-icon"></i>' : '' ?>
+                </span>
+                <span id="inv-progreso-titulo">Sincronización de inventario en curso</span>
+            </h6>
+            <small class="text-muted">
+                Última actualización: <span id="inv-progreso-ultima"><?= $hasInvState ? esc($inventario_state['last_update'] ?? '—') : '—' ?></span>
+            </small>
+        </div>
+
+        <div class="progress mb-2" style="height:10px;">
+            <div id="inv-progreso-barra"
+                 class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                 style="width:<?= $initInvPct ?>%">
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+                Página <strong><span id="inv-progreso-pagina"><?= $hasInvState ? $inventario_state['last_completed_page'] : 0 ?></span></strong>
+                de <strong><span id="inv-progreso-total"><?= $hasInvState ? $inventario_state['total_pages'] : 0 ?></span></strong>
+                &nbsp;·&nbsp;
+                Actualizados: <span id="inv-progreso-actualizados"><?= $hasInvState ? ($inventario_state['summary']['updated'] ?? 0) : 0 ?></span>
+                &nbsp;·&nbsp;
+                Vinculados: <span id="inv-progreso-vinculados"><?= $hasInvState ? ($inventario_state['summary']['ids_vinculados'] ?? 0) : 0 ?></span>
+                &nbsp;·&nbsp;
+                Errores: <span id="inv-progreso-errores"><?= $hasInvState ? ($inventario_state['summary']['errors'] ?? 0) : 0 ?></span>
+            </small>
+            <strong id="inv-progreso-pct" class="text-success"><?= $initInvPct ?>%</strong>
+        </div>
+    </div>
+</div>
+
 <div class="card mb-4">
     <div class="card-body p-4">
         <h6 class="fw-semibold mb-1">
@@ -202,15 +245,46 @@ $initPct  = $hasState
             y refleja los cambios en WooCommerce <strong>sin subir imágenes</strong>.
             El precio original se toma del campo <em>compara precio</em> de Jumpseller; el precio de venta, del campo <em>precio</em>.
             Si un producto no tiene ID de WooCommerce almacenado, se busca por SKU y se vincula automáticamente.
+            Si el proceso se interrumpe, el progreso queda guardado y puedes continuar desde aquí.
         </p>
-        <form action="<?= site_url('migraciones/sincronizar-inventario') ?>" method="post">
-            <?= csrf_field() ?>
-            <button type="submit" class="btn btn-outline-success"
-                <?= !$canRun ? 'disabled' : '' ?>
-                onclick="return confirm('¿Sincronizar precios y stock de todos los productos desde Jumpseller hacia WooCommerce?');">
-                <i class="bi bi-arrow-repeat me-2"></i>Sincronizar inventario
-            </button>
-        </form>
+
+        <div id="inv-aviso-estado" class="alert py-2 small mb-3 <?= $hasInvState ? 'alert-info' : 'alert-warning' ?>">
+            <?php if ($hasInvState): ?>
+                <i class="bi bi-info-circle me-1"></i>
+                Hay una sincronización en curso o pausada. Espera a que termine o usa los botones de abajo.
+            <?php else: ?>
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Si el hosting interrumpe el proceso, el progreso queda guardado y podrás continuar.
+            <?php endif; ?>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <form action="<?= site_url('migraciones/sincronizar-inventario') ?>" method="post">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-success"
+                    <?= (!$canRun || $hasInvState) ? 'disabled' : '' ?>
+                    onclick="return confirm('¿Sincronizar precios y stock de todos los productos desde Jumpseller hacia WooCommerce?');">
+                    <i class="bi bi-play-fill me-2"></i>Iniciar
+                </button>
+            </form>
+
+            <form action="<?= site_url('migraciones/reanudar-inventario') ?>" method="post">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-warning"
+                    <?= (!$canRun || !$hasInvState) ? 'disabled' : '' ?>>
+                    <i class="bi bi-play-fill me-2"></i>Continuar
+                </button>
+            </form>
+
+            <form action="<?= site_url('migraciones/reiniciar-inventario') ?>" method="post">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-outline-secondary"
+                    <?= !$hasInvState ? 'disabled' : '' ?>
+                    onclick="return confirm('¿Descartar el progreso de sincronización de inventario?');">
+                    <i class="bi bi-x-circle me-1"></i>Descartar progreso
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -302,6 +376,47 @@ function poll() {
 // Arrancar polling si hay estado activo al cargar la página
 if (<?= $hasState ? 'true' : 'false' ?>) {
     pollTimer = setInterval(poll, POLL_INTERVAL);
+}
+
+// ---- Polling sincronización de inventario ----
+const INV_PROGRESO_URL = '<?= site_url('migraciones/progreso-inventario') ?>';
+let   invPollTimer     = null;
+let   invLastPage      = <?= $hasInvState ? $inventario_state['last_completed_page'] : -1 ?>;
+
+function actualizarInvUI(data) {
+    const bloque = document.getElementById('inv-progreso-bloque');
+    const barra  = document.getElementById('inv-progreso-barra');
+
+    if (!data.active) {
+        clearInterval(invPollTimer);
+        document.getElementById('inv-progreso-titulo').textContent = 'Sincronización completada o pausada';
+        barra.classList.remove('progress-bar-animated', 'progress-bar-striped');
+        setTimeout(() => location.reload(), 2000);
+        return;
+    }
+
+    bloque.classList.remove('d-none');
+    barra.style.width = data.percent + '%';
+    document.getElementById('inv-progreso-pct').textContent          = data.percent + '%';
+    document.getElementById('inv-progreso-pagina').textContent       = data.last_completed_page;
+    document.getElementById('inv-progreso-total').textContent        = data.total_pages;
+    document.getElementById('inv-progreso-actualizados').textContent = data.summary.updated       ?? 0;
+    document.getElementById('inv-progreso-vinculados').textContent   = data.summary.ids_vinculados ?? 0;
+    document.getElementById('inv-progreso-errores').textContent      = data.summary.errors         ?? 0;
+    document.getElementById('inv-progreso-ultima').textContent       = data.last_update            ?? '—';
+
+    invLastPage = data.last_completed_page;
+}
+
+function invPoll() {
+    fetch(INV_PROGRESO_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(actualizarInvUI)
+        .catch(() => {});
+}
+
+if (<?= $hasInvState ? 'true' : 'false' ?>) {
+    invPollTimer = setInterval(invPoll, POLL_INTERVAL);
 }
 </script>
 <?= $this->endSection() ?>

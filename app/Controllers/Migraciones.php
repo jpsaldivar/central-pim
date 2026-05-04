@@ -28,6 +28,7 @@ class Migraciones extends BaseController
             'last_session_stats' => $this->logModel->getLastSessionStats(),
             'recent_logs'        => $this->logModel->getRecent(50),
             'migration_state'    => $this->logModel->getCheckpoint(),
+            'inventario_state'   => $this->logModel->getInventarioCheckpoint(),
         ]);
     }
 
@@ -179,19 +180,102 @@ class Migraciones extends BaseController
     }
 
     /**
-     * Sincroniza precios y stock de todos los productos desde Jumpseller hacia el catálogo
-     * interno y WooCommerce. No sube imágenes. Vincula el ID de WooCommerce si faltaba.
-     *
-     * Mapeo de precios (Jumpseller → local):
-     *   compare_at_price → precio (precio original)
-     *   price            → precio_oferta (precio de venta/oferta)
-     *   Si no hay compare_at_price: price → precio, sin precio_oferta.
+     * Inicia una sincronización de inventario desde cero (página 1).
      */
     public function sincronizarInventario()
     {
         if ($error = $this->checkCredentials()) {
             return redirect()->to(site_url('migraciones'))->with('error', $error);
         }
+
+        $this->logModel->clearInventarioCheckpoint();
+
+        $result = $this->executeInventarioSync(1, [
+            'updated'       => 0,
+            'ids_vinculados' => 0,
+            'skipped'       => 0,
+            'errors'        => 0,
+        ]);
+
+        return redirect()->to(site_url('migraciones'))
+            ->with($result['errors'] > 0 ? 'error' : 'success', $this->formatInventarioResult($result));
+    }
+
+    /**
+     * Reanuda la sincronización de inventario desde el último checkpoint guardado.
+     */
+    public function reanudarInventario()
+    {
+        if ($error = $this->checkCredentials()) {
+            return redirect()->to(site_url('migraciones'))->with('error', $error);
+        }
+
+        $state = $this->logModel->getInventarioCheckpoint();
+
+        if (!$state) {
+            return redirect()->to(site_url('migraciones'))
+                ->with('error', 'No hay sincronización de inventario pausada para reanudar.');
+        }
+
+        $result = $this->executeInventarioSync(
+            $state['last_completed_page'] + 1,
+            $state['summary']
+        );
+
+        return redirect()->to(site_url('migraciones'))
+            ->with($result['errors'] > 0 ? 'error' : 'success', $this->formatInventarioResult($result));
+    }
+
+    /**
+     * Descarta el checkpoint de inventario activo.
+     */
+    public function reiniciarInventario()
+    {
+        $this->logModel->clearInventarioCheckpoint();
+
+        return redirect()->to(site_url('migraciones'))
+            ->with('success', 'Estado de sincronización de inventario limpiado.');
+    }
+
+    /**
+     * Endpoint de polling JSON para el progreso de la sincronización de inventario.
+     */
+    public function progresoInventario()
+    {
+        $checkpoint = $this->logModel->getInventarioCheckpoint();
+
+        if (!$checkpoint) {
+            return $this->response->setJSON(['active' => false]);
+        }
+
+        $total   = max((int)($checkpoint['total_pages'] ?? 1), 1);
+        $current = (int)($checkpoint['last_completed_page'] ?? 0);
+
+        return $this->response->setJSON([
+            'active'              => true,
+            'percent'             => (int)round(($current / $total) * 100),
+            'last_completed_page' => $current,
+            'total_pages'         => $total,
+            'total_products'      => $checkpoint['total_products'] ?? 0,
+            'summary'             => $checkpoint['summary'] ?? [],
+            'last_update'         => $checkpoint['last_update'] ?? null,
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
+
+    /**
+     * Núcleo de la sincronización de inventario. Itera páginas de Jumpseller desde
+     * $startPage, guarda checkpoint tras cada página y devuelve el resumen final.
+     *
+     * Mapeo de precios (Jumpseller → local / WooCommerce):
+     *   compare_at_price → precio regular (precio original)
+     *   price            → precio oferta
+     *   Sin compare_at_price: price → precio regular, sin oferta.
+     */
+    private function executeInventarioSync(int $startPage, array $summary): array
+    {
+        set_time_limit(0);
 
         $db          = \Config\Database::connect();
         $jsTiendaId  = $this->connectionManager->getJumpsellerTiendaId();
@@ -200,38 +284,36 @@ class Migraciones extends BaseController
         $wooAdapter  = $this->connectionManager->makeWooCommerceAdapter();
 
         $limit         = 50;
-        $page          = 1;
-        $updated       = 0;
-        $idsVinculados = 0;
-        $skipped       = 0;
-        $errors        = 0;
+        $totalProducts = $jsAdapter->getProductCount();
+        $totalPages    = (int)ceil($totalProducts / $limit);
 
-        do {
+        for ($page = $startPage; $page <= $totalPages; $page++) {
             $products = $jsAdapter->fetchProductsRaw($page, $limit);
+
+            if (empty($products)) {
+                break;
+            }
 
             foreach ($products as $product) {
                 $jsId = (int)($product['id'] ?? 0);
                 if (!$jsId) {
-                    $skipped++;
+                    $summary['skipped']++;
                     continue;
                 }
 
-                // Buscar producto interno vinculado por external_id de Jumpseller
                 $ptJs = $db->table('producto_tienda')
                     ->where('tienda_id', $jsTiendaId)
                     ->where('external_id', (string)$jsId)
                     ->get()->getRowArray();
 
                 if (!$ptJs) {
-                    $skipped++;
+                    $summary['skipped']++;
                     continue;
                 }
 
                 $productoId = (int)$ptJs['producto_id'];
 
-                // Mapeo de precios: compare_at_price es el precio original en Jumpseller;
-                // price es el precio de venta (oferta). Si no hay compare_at_price,
-                // price pasa a ser el precio regular sin oferta.
+                // Precios
                 $jsPrice        = isset($product['price']) ? (float)$product['price'] : null;
                 $jsComparePrice = isset($product['compare_at_price']) && (float)$product['compare_at_price'] > 0
                     ? (float)$product['compare_at_price']
@@ -245,7 +327,7 @@ class Migraciones extends BaseController
                     $precioOferta = null;
                 }
 
-                // Stock: stock_management=false o stock=null → stock ilimitado
+                // Stock
                 $stockValue    = $product['stock'] ?? null;
                 $manageStock   = (bool)($product['stock_management'] ?? true) && $stockValue !== null;
                 $stockQuantity = $manageStock ? (int)$stockValue : 0;
@@ -258,7 +340,7 @@ class Migraciones extends BaseController
                     'stock_ilimitado' => $manageStock ? 0 : 1,
                 ]);
 
-                // Payload para WooCommerce (sin imágenes)
+                // Payload WooCommerce (sin imágenes)
                 $wooPayload = [
                     'regular_price' => (string)$precio,
                     'sale_price'    => $precioOferta !== null ? (string)$precioOferta : '',
@@ -270,7 +352,7 @@ class Migraciones extends BaseController
                     $wooPayload['stock_status'] = 'instock';
                 }
 
-                // Buscar external_id de WooCommerce
+                // Buscar o vincular WooCommerce ID
                 $ptWoo = $db->table('producto_tienda')
                     ->where('producto_id', $productoId)
                     ->where('tienda_id', $wooTiendaId)
@@ -278,7 +360,6 @@ class Migraciones extends BaseController
 
                 $wooId = !empty($ptWoo['external_id']) ? (int)$ptWoo['external_id'] : null;
 
-                // Si no hay ID de WooCommerce almacenado, buscar por SKU y vincularlo
                 if (!$wooId && !empty($product['sku'])) {
                     $wooProduct = $wooAdapter->findProductBySku((string)$product['sku']);
                     if ($wooProduct && !empty($wooProduct['id'])) {
@@ -295,32 +376,35 @@ class Migraciones extends BaseController
                                 'external_id' => (string)$wooId,
                             ]);
                         }
-                        $idsVinculados++;
+                        $summary['ids_vinculados']++;
                     }
                 }
 
                 if (!$wooId) {
-                    $skipped++;
+                    $summary['skipped']++;
                     continue;
                 }
 
-                $result = $wooAdapter->updateProduct($wooId, $wooPayload);
-                $result ? $updated++ : $errors++;
+                $wooAdapter->updateProduct($wooId, $wooPayload)
+                    ? $summary['updated']++
+                    : $summary['errors']++;
             }
 
-            $page++;
-        } while (count($products) === $limit);
+            // Guardar checkpoint al finalizar cada página
+            $this->logModel->saveInventarioCheckpoint([
+                'status'              => 'in_progress',
+                'total_products'      => $totalProducts,
+                'total_pages'         => $totalPages,
+                'last_completed_page' => $page,
+                'summary'             => $summary,
+            ]);
+        }
 
-        $msg = sprintf(
-            'Inventario sincronizado — Actualizados en WooCommerce: %d, IDs vinculados: %d, Omitidos: %d, Errores: %d.',
-            $updated,
-            $idsVinculados,
-            $skipped,
-            $errors
-        );
+        $this->logModel->clearInventarioCheckpoint();
 
-        return redirect()->to(site_url('migraciones'))
-            ->with($errors > 0 ? 'error' : 'success', $msg);
+        $summary['total_products'] = $totalProducts;
+
+        return $summary;
     }
 
     public function syncSkus()
@@ -471,6 +555,17 @@ class Migraciones extends BaseController
             $result['duration_seconds'],
             $result['created'],
             $result['updated'],
+            $result['skipped'],
+            $result['errors']
+        );
+    }
+
+    private function formatInventarioResult(array $result): string
+    {
+        return sprintf(
+            'Inventario sincronizado — Actualizados en WooCommerce: %d, IDs vinculados: %d, Omitidos: %d, Errores: %d.',
+            $result['updated'],
+            $result['ids_vinculados'],
             $result['skipped'],
             $result['errors']
         );
