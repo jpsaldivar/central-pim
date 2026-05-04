@@ -11,6 +11,7 @@ class ProductoModel extends Model
     protected $useTimestamps = false;
 
     protected $validationRules = [
+        'id'            => 'permit_empty|integer',
         'nombre'        => 'required|max_length[200]',
         'sku'           => 'permit_empty|max_length[100]|is_unique[productos.sku,id,{id}]',
         'precio'        => 'required|decimal|greater_than_equal_to[0]',
