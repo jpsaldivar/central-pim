@@ -98,8 +98,10 @@ class SonyAdapter extends BaseScraperAdapter
     {
         foreach ($nodes as $node) {
             if (!empty($node['url']) && !empty($node['id'])) {
-                // La URL viene como "https://store.sony.cl/camaras/lentes"
-                $map[rtrim($node['url'], '/')] = (int)$node['id'];
+                // La URL del árbol viene con el dominio de la API (vtexcommercestable.com.br)
+                // → normalizar al dominio público para que coincida con Config\Scrapers
+                $url = str_replace('clsonyb2c.vtexcommercestable.com.br', 'store.sony.cl', $node['url']);
+                $map[rtrim($url, '/')] = (int)$node['id'];
             }
             if (!empty($node['children'])) {
                 $this->flattenTree($node['children'], $map);
