@@ -57,8 +57,8 @@ $routes->post('/productos/bulk', 'Productos::bulkAction');
 $routes->get('/productos/export-csv', 'Productos::exportCsv');
 
 // Actualizaciones masivas
-$routes->match(['get', 'post'], '/actualizaciones/precios', 'Actualizaciones::precios');
-$routes->match(['get', 'post'], '/actualizaciones/stock',   'Actualizaciones::stock');
+$routes->match(['GET', 'POST'], '/actualizaciones/precios', 'Actualizaciones::precios');
+$routes->match(['GET', 'POST'], '/actualizaciones/stock',   'Actualizaciones::stock');
 
 // Migraciones
 $routes->get('/migraciones', 'Migraciones::index');
