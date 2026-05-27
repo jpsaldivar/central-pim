@@ -38,7 +38,8 @@ class SonyAdapter extends BaseScraperAdapter
      */
     public function scrape(array $urls): array
     {
-        // Resolver URL → category ID usando el árbol de VTEX (1 request)
+        // Resolver URL → fq path usando el árbol de VTEX (1 request)
+        // Ej: "https://store.sony.cl/camaras/lentes" → "C:/1/8/"
         $categoryMap = $this->buildCategoryMap();
 
         $productos = [];
@@ -46,20 +47,18 @@ class SonyAdapter extends BaseScraperAdapter
 
         foreach ($urls as $url) {
             // Normalizar URL a la forma exacta que usa VTEX en el árbol
-            $path     = '/' . trim(parse_url($url, PHP_URL_PATH), '/');
-            $fullUrl  = self::STORE_BASE . $path;
+            $path    = '/' . trim(parse_url($url, PHP_URL_PATH), '/');
+            $fullUrl = self::STORE_BASE . $path;
 
-            $categoryId = $categoryMap[$fullUrl] ?? null;
-            if ($categoryId === null) {
-                log_message('warning', "[SonyAdapter] No se encontró category ID para: {$url}. " .
-                    "IDs disponibles: " . implode(', ', array_map(
-                        fn($u, $id) => "{$id}={$u}", array_keys($categoryMap), $categoryMap
-                    )));
+            $fqPath = $categoryMap[$fullUrl] ?? null;
+            if ($fqPath === null) {
+                log_message('warning', "[SonyAdapter] No se encontró category path para: {$url}. " .
+                    "Disponibles: " . implode(', ', array_keys($categoryMap)));
                 continue;
             }
 
-            log_message('info', "[SonyAdapter] Scrapeando categoría ID {$categoryId} ({$url})");
-            $this->scrapeCategory($categoryId, $productos, $seen);
+            log_message('info', "[SonyAdapter] Scrapeando {$fqPath} ({$url})");
+            $this->scrapeCategory($fqPath, $productos, $seen);
         }
 
         log_message('info', "[SonyAdapter] Total productos obtenidos: " . count($productos));
@@ -93,18 +92,21 @@ class SonyAdapter extends BaseScraperAdapter
         return $map;
     }
 
-    /** Recorre recursivamente el árbol y puebla $map[url] = id */
-    private function flattenTree(array $nodes, array &$map): void
+    /**
+     * Recorre recursivamente el árbol y puebla $map[url] = 'C:/parentId/childId/'.
+     * La API VTEX requiere la ruta completa de IDs (no solo el ID hoja).
+     * Ej: categoría Lentes (id=8, padre=1) → 'C:/1/8/'
+     */
+    private function flattenTree(array $nodes, array &$map, string $parentPath = 'C:/'): void
     {
         foreach ($nodes as $node) {
             if (!empty($node['url']) && !empty($node['id'])) {
-                // La URL del árbol viene con el dominio de la API (vtexcommercestable.com.br)
-                // → normalizar al dominio público para que coincida con Config\Scrapers
-                $url = str_replace('clsonyb2c.vtexcommercestable.com.br', 'store.sony.cl', $node['url']);
-                $map[rtrim($url, '/')] = (int)$node['id'];
+                $url      = str_replace('clsonyb2c.vtexcommercestable.com.br', 'store.sony.cl', $node['url']);
+                $fqPath   = $parentPath . $node['id'] . '/';
+                $map[rtrim($url, '/')] = $fqPath;
             }
             if (!empty($node['children'])) {
-                $this->flattenTree($node['children'], $map);
+                $this->flattenTree($node['children'], $map, $parentPath . $node['id'] . '/');
             }
         }
     }
@@ -115,8 +117,10 @@ class SonyAdapter extends BaseScraperAdapter
 
     /**
      * Itera todas las páginas de la API para una categoría y acumula productos.
+     *
+     * @param string $fqPath  Ruta completa de categoría VTEX, ej: "C:/1/8/"
      */
-    private function scrapeCategory(int $categoryId, array &$productos, array &$seen): void
+    private function scrapeCategory(string $fqPath, array &$productos, array &$seen): void
     {
         $from  = 0;
         $total = PHP_INT_MAX; // se actualiza con el primer response
@@ -124,7 +128,7 @@ class SonyAdapter extends BaseScraperAdapter
         while ($from < $total) {
             $to     = $from + self::PAGE_SIZE - 1;
             $apiUrl = self::VTEX_API_BASE .
-                      "/api/catalog_system/pub/products/search/?fq=C:/{$categoryId}/&_from={$from}&_to={$to}";
+                      "/api/catalog_system/pub/products/search/?fq={$fqPath}&_from={$from}&_to={$to}";
 
             try {
                 $response = $this->http->get($apiUrl, [
