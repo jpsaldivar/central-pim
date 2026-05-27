@@ -16,11 +16,15 @@ use Symfony\Component\DomCrawler\Crawler;
 
 final class CrawlerSelectorAttributeValueSame extends Constraint
 {
-    public function __construct(
-        private string $selector,
-        private string $attribute,
-        private string $expectedText,
-    ) {
+    private string $selector;
+    private string $attribute;
+    private string $expectedText;
+
+    public function __construct(string $selector, string $attribute, string $expectedText)
+    {
+        $this->selector = $selector;
+        $this->attribute = $attribute;
+        $this->expectedText = $expectedText;
     }
 
     public function toString(): string
