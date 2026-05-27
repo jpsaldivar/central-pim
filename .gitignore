@@ -84,7 +84,9 @@ phpunit
 #-------------------------
 # Composer
 #-------------------------
-vendor/
+# vendor/ comprometido intencionalmente — el hosting no tiene Composer disponible.
+# Al agregar/actualizar dependencias localmente: composer install --ignore-platform-reqs
+# y luego commitear los cambios en vendor/.
 
 #-------------------------
 # IDE / Development Files
