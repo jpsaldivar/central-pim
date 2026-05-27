@@ -157,3 +157,98 @@ WHERE NOT EXISTS (
   SELECT 1 FROM `migrations`
   WHERE `class` = 'App\\Database\\Migrations\\AddPlataformaToTiendas'
 );
+
+-- ============================================================
+-- Tabla: scraper_runs
+-- Registra cada ejecución de scraping por tienda: estado,
+-- totales y timestamps. Una fila por ejecución.
+-- Equivalente a la migración:
+--   2024-02-01-000001_CreateScraperRuns.php
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS `scraper_runs` (
+  `id`                INT(10) UNSIGNED    NOT NULL AUTO_INCREMENT,
+  `tienda_id`         INT(10) UNSIGNED    NOT NULL,
+  `estado`            ENUM('en_progreso','completado','error')
+                                          NOT NULL DEFAULT 'en_progreso',
+  `total_encontrados` INT(10) UNSIGNED    NOT NULL DEFAULT 0,
+  `total_nuevos`      INT(10) UNSIGNED    NOT NULL DEFAULT 0,
+  `total_cambios`     INT(10) UNSIGNED    NOT NULL DEFAULT 0
+                        COMMENT 'Productos con precio distinto al run anterior',
+  `mensaje_error`     TEXT                    NULL DEFAULT NULL,
+  `iniciado_en`       DATETIME            NOT NULL,
+  `finalizado_en`     DATETIME                NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tienda_id` (`tienda_id`),
+  CONSTRAINT `fk_scraper_runs_tienda`
+    FOREIGN KEY (`tienda_id`) REFERENCES `tiendas` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- Tabla: scraper_productos
+-- Snapshot de productos obtenidos en cada run. Vinculable al
+-- catálogo interno mediante producto_id (nullable).
+-- Equivalente a la migración:
+--   2024-02-01-000002_CreateScraperProductos.php
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS `scraper_productos` (
+  `id`            INT(10) UNSIGNED    NOT NULL AUTO_INCREMENT,
+  `run_id`        INT(10) UNSIGNED    NOT NULL,
+  `tienda_id`     INT(10) UNSIGNED    NOT NULL,
+  `external_ref`  VARCHAR(100)            NULL DEFAULT NULL
+                    COMMENT 'ID o slug del producto en la plataforma origen',
+  `ean`           VARCHAR(13)             NULL DEFAULT NULL,
+  `sku`           VARCHAR(100)            NULL DEFAULT NULL,
+  `nombre`        VARCHAR(300)        NOT NULL,
+  `url`           VARCHAR(500)            NULL DEFAULT NULL,
+  `precio_normal` INT(10) UNSIGNED        NULL DEFAULT NULL
+                    COMMENT 'CLP entero sin decimales',
+  `precio_oferta` INT(10) UNSIGNED        NULL DEFAULT NULL
+                    COMMENT 'CLP entero sin decimales',
+  `disponible`    TINYINT(1)          NOT NULL DEFAULT 1,
+  `producto_id`   INT(10) UNSIGNED        NULL DEFAULT NULL
+                    COMMENT 'FK al catálogo interno, se llena al vincular',
+  `created_at`    DATETIME            NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_run_id`      (`run_id`),
+  KEY `idx_tienda_id`   (`tienda_id`),
+  KEY `idx_producto_id` (`producto_id`),
+  KEY `idx_ean`         (`ean`),
+  KEY `idx_sku`         (`sku`),
+  CONSTRAINT `fk_scraper_productos_run`
+    FOREIGN KEY (`run_id`)      REFERENCES `scraper_runs` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_scraper_productos_tienda`
+    FOREIGN KEY (`tienda_id`)   REFERENCES `tiendas` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_scraper_productos_producto`
+    FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`)
+    ON DELETE SET NULL ON UPDATE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Seed: tiendas scraper
+-- Equivalente a: php spark db:seed ScraperTiendasSeeder
+-- Inserta las 3 tiendas de monitoreo solo si no existen.
+-- ============================================================
+
+INSERT INTO `tiendas` (`nombre`, `plataforma`, `url_api`, `token_auth`)
+SELECT 'Dronestore Chile', 'dronestore_scraper', 'https://dronestore.cl', ''
+WHERE NOT EXISTS (
+  SELECT 1 FROM `tiendas` WHERE `plataforma` = 'dronestore_scraper'
+);
+
+INSERT INTO `tiendas` (`nombre`, `plataforma`, `url_api`, `token_auth`)
+SELECT 'GoPro Chile', 'gopro_scraper', 'https://www.gopro.cl', ''
+WHERE NOT EXISTS (
+  SELECT 1 FROM `tiendas` WHERE `plataforma` = 'gopro_scraper'
+);
+
+INSERT INTO `tiendas` (`nombre`, `plataforma`, `url_api`, `token_auth`)
+SELECT 'Sony Store Chile', 'sony_scraper', 'https://store.sony.cl', ''
+WHERE NOT EXISTS (
+  SELECT 1 FROM `tiendas` WHERE `plataforma` = 'sony_scraper'
+);

@@ -75,3 +75,9 @@ $routes->post('/migraciones/reiniciar-inventario', 'Migraciones::reiniciarInvent
 $routes->get('/migraciones/progreso-inventario', 'Migraciones::progresoInventario');
 $routes->post('/migraciones/sync-producto/(:num)', 'Migraciones::syncProducto/$1');
 $routes->post('/migraciones/sync-desde-jumpseller/(:num)', 'Migraciones::syncDesdeJumpseller/$1');
+
+// Scrapers
+$routes->get('/scrapers',                  'Scrapers::index');
+$routes->post('/scrapers/run/(:num)',       'Scrapers::run/$1');
+$routes->get('/scrapers/show/(:num)',       'Scrapers::show/$1');
+$routes->post('/scrapers/link',            'Scrapers::link');

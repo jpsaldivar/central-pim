@@ -106,6 +106,9 @@
         <a href="/migraciones" class="nav-link <?= str_starts_with(uri_string(), 'migraciones') ? 'active' : '' ?>">
             <i class="bi bi-arrow-left-right"></i> Migraciones
         </a>
+        <a href="/scrapers" class="nav-link <?= str_starts_with(uri_string(), 'scrapers') ? 'active' : '' ?>">
+            <i class="bi bi-radar"></i> Scrapers
+        </a>
         <div class="nav-section">Sistema</div>
         <a href="/logout" class="nav-link text-danger">
             <i class="bi bi-box-arrow-left"></i> Cerrar Sesión
