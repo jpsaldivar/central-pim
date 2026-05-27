@@ -27,6 +27,12 @@ class ScraperTiendasSeeder extends Seeder
                 'url_api'    => 'https://store.sony.cl',
                 'token_auth' => '',
             ],
+            [
+                'nombre'     => 'Hanuman',
+                'plataforma' => 'hanuman_scraper',
+                'url_api'    => 'https://consultas.hanuman.cl',
+                'token_auth' => '',
+            ],
         ];
 
         foreach ($tiendas as $tienda) {

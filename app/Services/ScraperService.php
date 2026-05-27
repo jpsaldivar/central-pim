@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Adapters\Scrapers\DroneStoreAdapter;
 use App\Adapters\Scrapers\GoProAdapter;
+use App\Adapters\Scrapers\HanumanAdapter;
 use App\Adapters\Scrapers\ScraperInterface;
 use App\Adapters\Scrapers\SonyAdapter;
 use App\Models\ScraperProductoModel;
@@ -199,6 +200,7 @@ class ScraperService
             'dronestore_scraper' => new DroneStoreAdapter(),
             'gopro_scraper'      => new GoProAdapter(),
             'sony_scraper'       => new SonyAdapter(),
+            'hanuman_scraper'    => new HanumanAdapter(),
             default              => throw new \RuntimeException(
                 "No existe adapter para la plataforma '{$plataforma}'."
             ),

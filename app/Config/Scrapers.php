@@ -42,5 +42,13 @@ class Scrapers extends BaseConfig
             ],
         ],
 
+        'hanuman_scraper' => [
+            'nombre'    => 'Hanuman',
+            'url_base'  => 'https://consultas.hanuman.cl',
+            'categorias' => [
+                ['nombre' => 'Catálogo completo', 'url' => 'https://consultas.hanuman.cl/stock/stock.php'],
+            ],
+        ],
+
     ];
 }
