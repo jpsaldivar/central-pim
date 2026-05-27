@@ -91,8 +91,12 @@ class ScraperService
             $dtos    = $adapter->scrape($urls);
 
             if (empty($dtos)) {
+                $urlList = implode("\n", $urls);
                 throw new \RuntimeException(
-                    "El scraper no retornó productos. Posible cambio de estructura HTML en el sitio."
+                    "El scraper no retornó productos (0 encontrados).\n\n" .
+                    "URLs intentadas:\n{$urlList}\n\n" .
+                    "Posible causa: cambio en la estructura HTML del sitio, bloqueo por IP/rate-limit, o selector desactualizado.\n" .
+                    "Revisar logs del servidor para más detalle."
                 );
             }
 
@@ -114,7 +118,8 @@ class ScraperService
         } catch (\Throwable $e) {
             $this->runModel->marcarError($runId, $e->getMessage());
             log_message('error', "[ScraperService] Run #{$runId} fallido: " . $e->getMessage());
-            throw $e;
+            // No relanzamos: el controller redirige siempre a show/{runId}
+            // donde se muestra el estado 'error' y el mensaje completo.
         }
 
         return $runId;

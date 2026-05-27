@@ -53,9 +53,12 @@
                     <td class="fw-semibold">
                         <?= esc($t['tienda_nombre']) ?>
                         <?php if ($t['run_id'] && $estado === 'error'): ?>
-                            <i class="bi bi-exclamation-triangle-fill text-danger ms-1"
-                               title="<?= esc($t['mensaje_error'] ?? '') ?>"
-                               data-bs-toggle="tooltip"></i>
+                            <button type="button"
+                                    class="btn btn-link p-0 ms-1 btn-ver-error"
+                                    data-mensaje="<?= esc($t['mensaje_error'] ?? 'Sin detalle de error.') ?>"
+                                    title="Ver detalle del error">
+                                <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                            </button>
                         <?php endif; ?>
                     </td>
                     <td>
@@ -119,12 +122,39 @@
     </div>
 </div>
 
+<!-- Modal: detalle de error -->
+<div class="modal fade" id="modalError" tabindex="-1" aria-labelledby="modalErrorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white py-2">
+                <h6 class="modal-title fw-semibold" id="modalErrorLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Detalle del error
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="modal-error-msg" class="bg-light rounded p-3 small mb-0"
+                     style="white-space: pre-wrap; word-break: break-word;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
-document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-    new bootstrap.Tooltip(el);
+const modalError    = new bootstrap.Modal(document.getElementById('modalError'));
+const modalErrorMsg = document.getElementById('modal-error-msg');
+
+document.querySelectorAll('.btn-ver-error').forEach(btn => {
+    btn.addEventListener('click', () => {
+        modalErrorMsg.textContent = btn.dataset.mensaje;
+        modalError.show();
+    });
 });
 </script>
 <?= $this->endSection() ?>

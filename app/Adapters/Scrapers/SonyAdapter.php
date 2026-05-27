@@ -37,21 +37,33 @@ class SonyAdapter extends BaseScraperAdapter
      */
     public function scrape(array $urls): array
     {
-        $productos = [];
-        $seen      = []; // evitar duplicados por href entre categorías
+        $productos   = [];
+        $seen        = []; // evitar duplicados por href entre categorías
+        $diagnostics = []; // recopila info para logs y mensajes de error
 
         foreach ($urls as $baseUrl) {
             $origin = $this->originFromUrl($baseUrl);
+            $urlDiag = ['url' => $baseUrl, 'paginas_ok' => 0, 'paginas_fallidas' => 0, 'items' => 0];
 
             // Página 1: parsear productos y detectar total de páginas
             $crawler = $this->fetch($baseUrl . '?page=1');
             if ($crawler === null) {
-                log_message('warning', "[SonyAdapter] No se pudo obtener {$baseUrl}");
+                log_message('warning', "[SonyAdapter] No se pudo obtener {$baseUrl}?page=1");
+                $urlDiag['paginas_fallidas']++;
+                $diagnostics[] = $urlDiag;
                 continue;
             }
 
+            $urlDiag['paginas_ok']++;
             $totalPages = $this->detectTotalPages($crawler);
+            $urlDiag['total_paginas_detectadas'] = $totalPages;
+
+            // Diagnóstico: cuántos gallery items hay en la página 1
+            $urlDiag['gallery_items_p1'] = $crawler->filter('.vtex-search-result-3-x-galleryItem')->count();
+
+            $antesP1 = count($productos);
             $this->parsePage($crawler, $origin, $productos, $seen);
+            $urlDiag['items'] += count($productos) - $antesP1;
 
             // Páginas siguientes
             for ($page = 2; $page <= $totalPages; $page++) {
@@ -59,11 +71,19 @@ class SonyAdapter extends BaseScraperAdapter
                 $pageCrawler = $this->fetch($baseUrl . '?page=' . $page);
                 if ($pageCrawler === null) {
                     log_message('warning', "[SonyAdapter] No se pudo obtener página {$page} de {$baseUrl}");
+                    $urlDiag['paginas_fallidas']++;
                     continue;
                 }
+                $urlDiag['paginas_ok']++;
+                $antes = count($productos);
                 $this->parsePage($pageCrawler, $origin, $productos, $seen);
+                $urlDiag['items'] += count($productos) - $antes;
             }
+
+            $diagnostics[] = $urlDiag;
         }
+
+        log_message('info', '[SonyAdapter] Diagnóstico: ' . json_encode($diagnostics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         return $productos;
     }

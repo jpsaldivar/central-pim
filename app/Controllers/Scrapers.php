@@ -39,11 +39,20 @@ class Scrapers extends BaseController
             $service = new ScraperService();
             $runId   = $service->ejecutarRun($tiendaId);
 
+            // Siempre redirigir al detalle del run; el estado 'error' se muestra ahí.
+            $run = $this->runModel->find($runId);
+            if ($run && $run['estado'] === 'error') {
+                return redirect()
+                    ->to(site_url("scrapers/show/{$runId}"))
+                    ->with('error', 'El scraping falló. Ver detalles abajo.');
+            }
+
             return redirect()
                 ->to(site_url("scrapers/show/{$runId}"))
                 ->with('success', 'Scraping completado correctamente.');
 
         } catch (\RuntimeException $e) {
+            // Solo errores previos a la creación del run (tienda inexistente, run concurrente…)
             return redirect()
                 ->to(site_url('scrapers'))
                 ->with('error', $e->getMessage());
