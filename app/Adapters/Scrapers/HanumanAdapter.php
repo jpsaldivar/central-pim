@@ -8,12 +8,18 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * Scraper para Hanuman (https://consultas.hanuman.cl/stock/stock.php).
  *
- * El endpoint entrega una tabla HTML con el catálogo completo sin paginación.
- * Columnas: MARCA | PRODUCTO | CÓDIGO | REFERENCIA | PRECIO PÚBLICO | STOCK
+ * El endpoint entrega una tabla HTML (id="productos3") con el catálogo completo
+ * sin paginación. Los <tr> de datos vienen directo después de </thead> sin <tbody>.
  *
- * Identificadores disponibles:
- *   - sku/externalRef: columna CÓDIGO (ej: BY-WM8Pro-K1, ZOOM-H4nPro-BLK)
- *   - disponible:      columna STOCK — "0" = sin stock, "+30" o número > 0 = disponible
+ * Estructura de columnas (8 en total):
+ *   [0] MARCA          — texto en <abbr>
+ *   [1] PRODUCTO        — texto en <abbr>
+ *   [2] CÓDIGO BARRA    — EAN-13, generalmente vacío
+ *   [3] CÓDIGO          — SKU del fabricante (ej: BY-WM8Pro-K1)
+ *   [4] REFERENCIA      — imagen del producto (ignorada)
+ *   [5] ENLACE          — <a href> a la página del producto en tienda.hanuman.cl
+ *   [6] PRECIO PÚBLICO  — precio CLP en <abbr>
+ *   [7] STOCK           — cantidad en <b>; "0" = sin stock
  */
 class HanumanAdapter extends BaseScraperAdapter
 {
@@ -38,40 +44,54 @@ class HanumanAdapter extends BaseScraperAdapter
                 continue;
             }
 
-            // La tabla de productos está dentro del <tbody>
-            $crawler->filter('table tbody tr')->each(
+            // Los <tr> de datos van directo tras </thead> sin <tbody>
+            // Usamos el id de la tabla y filtramos filas de encabezado
+            $crawler->filter('#productos3 tr')->each(
                 function (Crawler $row) use (&$productos, &$seen) {
-                    $celdas = $row->filter('td');
-
-                    // Esperamos al menos 6 columnas: MARCA, PRODUCTO, CÓDIGO, REFERENCIA, PRECIO, STOCK
-                    if ($celdas->count() < 6) {
+                    // Ignorar filas de encabezado
+                    if ($row->filter('th')->count() > 0) {
                         return;
                     }
 
-                    $codigo = trim($celdas->eq(2)->text());
+                    $celdas = $row->filter('td');
+
+                    // Necesitamos al menos 8 columnas
+                    if ($celdas->count() < 8) {
+                        return;
+                    }
+
+                    $codigo = trim($celdas->eq(3)->text());
                     $nombre = trim($celdas->eq(1)->text());
 
                     if ($nombre === '' || $codigo === '') {
                         return;
                     }
 
-                    // Evitar duplicados por CÓDIGO
                     if (isset($seen[$codigo])) {
                         return;
                     }
                     $seen[$codigo] = true;
 
-                    $precioText = trim($celdas->eq(4)->text());
-                    $precioNormal = $this->parsePrice($precioText);
+                    // EAN desde columna [2] (generalmente vacío)
+                    $ean = trim($celdas->eq(2)->text());
+                    $ean = ($ean !== '' && preg_match('/^\d{8,13}$/', $ean)) ? $ean : null;
 
-                    $stockText  = trim($celdas->eq(5)->text());
+                    // URL del producto en tienda.hanuman.cl
+                    $enlaceNode = $celdas->eq(5)->filter('a');
+                    $productoUrl = $enlaceNode->count() > 0 ? $enlaceNode->attr('href') : null;
+
+                    $precioNormal = $this->parsePrice($celdas->eq(6)->text());
+
+                    $stockText  = trim($celdas->eq(7)->text());
                     $disponible = $this->parseDisponible($stockText);
 
                     $dto              = new ScrapedProductDTO($nombre);
                     $dto->sku         = $codigo;
                     $dto->externalRef = $codigo;
+                    $dto->ean         = $ean;
                     $dto->precioNormal = $precioNormal;
                     $dto->disponible  = $disponible;
+                    $dto->url         = $productoUrl;
 
                     $productos[] = $dto;
                 }
@@ -91,7 +111,6 @@ class HanumanAdapter extends BaseScraperAdapter
      */
     private function parseDisponible(string $texto): bool
     {
-        // Quitar el "+" y espacios, dejar solo el número
         $numero = (int)preg_replace('/[^0-9]/', '', $texto);
         return $numero > 0;
     }
