@@ -27,14 +27,18 @@ function calcDiff(?int $actual, ?int $anterior): ?array {
 ?>
 
 <!-- Encabezado del run -->
-<div class="d-flex align-items-center gap-2 mb-3">
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
     <a href="<?= site_url('scrapers') ?>" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i>
     </a>
-    <h6 class="fw-semibold mb-0">
-        Run #<?= $run['id'] ?> —
-        <span class="text-muted fw-normal"><?= esc(date('d/m/Y H:i', strtotime($run['iniciado_en']))) ?></span>
-    </h6>
+    <div>
+        <h6 class="fw-semibold mb-0">
+            <?= esc($tienda_nombre) ?>
+            <span class="text-muted fw-normal mx-1">·</span>
+            Run #<?= $run['id'] ?>
+            <span class="text-muted fw-normal ms-1"><?= esc(date('d/m/Y H:i', strtotime($run['iniciado_en']))) ?></span>
+        </h6>
+    </div>
     <?php
         $badgeClass = match($run['estado']) {
             'completado'  => 'bg-success',
@@ -44,6 +48,12 @@ function calcDiff(?int $actual, ?int $anterior): ?array {
         };
     ?>
     <span class="badge <?= $badgeClass ?>"><?= esc($run['estado']) ?></span>
+    <?php if (!empty($categorias)): ?>
+        <button type="button" class="btn btn-outline-secondary btn-sm ms-auto"
+                data-bs-toggle="modal" data-bs-target="#modalCategorias">
+            <i class="bi bi-list-ul me-1"></i><?= count($categorias) ?> <?= count($categorias) === 1 ? 'categoría' : 'categorías' ?>
+        </button>
+    <?php endif; ?>
 </div>
 
 <?php if ($run['estado'] === 'error'): ?>
@@ -226,6 +236,42 @@ function calcDiff(?int $actual, ?int $anterior): ?array {
         </div>
     </div>
 </div>
+
+<!-- Modal: Categorías scrapeadas -->
+<?php if (!empty($categorias)): ?>
+<div class="modal fade" id="modalCategorias" tabindex="-1" aria-labelledby="modalCategoriasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-semibold" id="modalCategoriasLabel">
+                    <i class="bi bi-list-ul me-2 text-primary"></i>Categorías scrapeadas
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($categorias as $cat): ?>
+                    <li class="list-group-item d-flex align-items-start gap-2 py-2">
+                        <i class="bi bi-tag text-muted mt-1" style="font-size:.85rem;"></i>
+                        <div>
+                            <div class="fw-semibold small"><?= esc($cat['nombre']) ?></div>
+                            <a href="<?= esc($cat['url']) ?>" target="_blank" rel="noopener"
+                               class="text-muted small text-decoration-none text-break">
+                                <?= esc($cat['url']) ?>
+                                <i class="bi bi-box-arrow-up-right ms-1" style="font-size:.65rem;"></i>
+                            </a>
+                        </div>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Modal: Vincular producto -->
 <div class="modal fade" id="modalVincular" tabindex="-1" aria-labelledby="modalVincularLabel" aria-hidden="true">

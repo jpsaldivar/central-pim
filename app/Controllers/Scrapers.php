@@ -75,11 +75,19 @@ class Scrapers extends BaseController
         $sinVincular     = $this->productoModel->getSinVincular($runId);
         $catalogoOptions = $this->getCatalogoOptions();
 
+        // Nombre de la tienda y categorías configuradas
+        $tienda     = model(\App\Models\TiendaModel::class)->find($run['tienda_id']);
+        $plataforma = $tienda['plataforma'] ?? '';
+        $scraperCfg = config('Scrapers')->tiendas[$plataforma] ?? [];
+        $categorias = $scraperCfg['categorias'] ?? [];
+
         return view('scrapers/show', [
-            'title'           => 'Scraper — Run #' . $runId,
-            'run'             => $run,
-            'productos'       => $productos,
-            'sin_vincular'    => count($sinVincular),
+            'title'            => 'Scraper — Run #' . $runId,
+            'run'              => $run,
+            'tienda_nombre'    => $scraperCfg['nombre'] ?? ($tienda['nombre'] ?? ''),
+            'categorias'       => $categorias,
+            'productos'        => $productos,
+            'sin_vincular'     => count($sinVincular),
             'catalogo_options' => $catalogoOptions,
         ]);
     }
