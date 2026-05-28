@@ -50,5 +50,19 @@ class Scrapers extends BaseConfig
             ],
         ],
 
+        // Proveedores con lista de precios en Google Sheets (hoja pública).
+        // Plataforma: google_sheets_{slug}  →  usa GoogleSheetsAdapter automáticamente.
+        // URL: exportación CSV de la hoja.  Cambiar gid= si la hoja activa es otra.
+        'google_sheets_matrix_fotografia' => [
+            'nombre'   => 'Matrix Fotografía',
+            'url_base' => 'https://docs.google.com/spreadsheets',
+            'categorias' => [
+                [
+                    'nombre' => 'Lista de precios',
+                    'url'    => 'https://docs.google.com/spreadsheets/d/1m4aCXLTMxCqEN52FvESuvnavaj-lHnuq-06eBmxxObU/export?format=csv&gid=2062735579',
+                ],
+            ],
+        ],
+
     ];
 }

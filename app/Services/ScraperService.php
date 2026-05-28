@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Adapters\Scrapers\DroneStoreAdapter;
 use App\Adapters\Scrapers\GoProAdapter;
+use App\Adapters\Scrapers\GoogleSheetsAdapter;
 use App\Adapters\Scrapers\HanumanAdapter;
 use App\Adapters\Scrapers\ScraperInterface;
 use App\Adapters\Scrapers\SonyAdapter;
@@ -196,6 +197,10 @@ class ScraperService
      */
     private function resolverAdapter(string $plataforma): ScraperInterface
     {
+        if (str_starts_with($plataforma, 'google_sheets_')) {
+            return new GoogleSheetsAdapter();
+        }
+
         return match ($plataforma) {
             'dronestore_scraper' => new DroneStoreAdapter(),
             'gopro_scraper'      => new GoProAdapter(),

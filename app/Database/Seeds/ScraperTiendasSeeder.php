@@ -33,6 +33,12 @@ class ScraperTiendasSeeder extends Seeder
                 'url_api'    => 'https://consultas.hanuman.cl',
                 'token_auth' => '',
             ],
+            [
+                'nombre'     => 'Matrix Fotografía',
+                'plataforma' => 'google_sheets_matrix_fotografia',
+                'url_api'    => 'https://docs.google.com/spreadsheets',
+                'token_auth' => '',
+            ],
         ];
 
         foreach ($tiendas as $tienda) {
