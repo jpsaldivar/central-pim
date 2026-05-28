@@ -114,7 +114,7 @@ class ScraperRunModel extends Model
                 ORDER BY id DESC
                 LIMIT 1
             )
-            WHERE t.plataforma LIKE '%_scraper'
+            WHERE (t.plataforma LIKE '%\_scraper' OR t.plataforma LIKE 'google\_sheets\_%')
             ORDER BY t.nombre ASC
         ")->getResultArray();
     }

@@ -45,37 +45,45 @@ class GoogleSheetsAdapter extends BaseScraperAdapter
                 continue;
             }
 
-            $lines  = array_filter(explode("\n", $csv), fn($l) => trim($l) !== '');
-            $lines  = array_values($lines);
-
-            if (empty($lines)) {
+            if (trim($csv) === '') {
                 log_message('warning', "[GoogleSheetsAdapter] CSV vacío: {$url}");
                 continue;
             }
 
-            // Primera fila = cabeceras
-            $headers = str_getcsv(array_shift($lines));
-            $headers = array_map('trim', $headers);
+            // Usar fgetcsv() sobre un stream de memoria para manejar correctamente
+            // campos multi-línea (descripciones con saltos de línea dentro de comillas).
+            $stream = fopen('php://temp', 'r+');
+            fwrite($stream, $csv);
+            rewind($stream);
 
-            $idxSku    = $this->resolveCol($headers, ['SKU (Links oficiales)', 'SKU', 'Código', 'Modelo']);
-            $idxPrecio = $this->resolveCol($headers, ['P. público con iva', 'P. Público con IVA', 'Precio Público', 'P. Público Neto']);
-            $idxStock  = $this->resolveCol($headers, ['STOCK', 'Stock', 'Existencia']);
+            $headers   = null;
+            $idxSku    = null;
+            $idxPrecio = null;
+            $idxStock  = null;
 
-            if ($idxSku === null || $idxPrecio === null || $idxStock === null) {
-                log_message('error', "[GoogleSheetsAdapter] No se encontraron columnas requeridas en {$url}. " .
-                    "Cabeceras disponibles: " . implode(', ', $headers));
-                continue;
-            }
+            while (($cols = fgetcsv($stream)) !== false) {
+                // Primera fila válida = cabeceras
+                if ($headers === null) {
+                    $headers   = array_map('trim', $cols);
+                    $idxSku    = $this->resolveCol($headers, ['SKU (Links oficiales)', 'SKU', 'Código', 'Modelo']);
+                    $idxPrecio = $this->resolveCol($headers, ['P. público con iva', 'P. Público con IVA', 'Precio Público', 'P. Público Neto']);
+                    $idxStock  = $this->resolveCol($headers, ['STOCK', 'Stock', 'Existencia']);
 
-            foreach ($lines as $line) {
-                $cols = str_getcsv($line);
+                    if ($idxSku === null || $idxPrecio === null || $idxStock === null) {
+                        log_message('error', "[GoogleSheetsAdapter] Columnas requeridas no encontradas en {$url}. " .
+                            "Cabeceras: " . implode(', ', $headers));
+                        break;
+                    }
+                    continue;
+                }
+
                 $cols = array_map('trim', $cols);
 
                 $sku    = $cols[$idxSku]    ?? '';
                 $precio = $cols[$idxPrecio] ?? '';
                 $stock  = $cols[$idxStock]  ?? '0';
 
-                // Fila vacía o sin SKU (filas de separación, totales, etc.)
+                // Fila vacía o sin SKU (separadores, totales, etc.)
                 if ($sku === '') {
                     continue;
                 }
@@ -87,15 +95,18 @@ class GoogleSheetsAdapter extends BaseScraperAdapter
 
                 $precioNormal = $this->parsePrice($precio);
                 $disponible   = ((int)preg_replace('/[^0-9]/', '', $stock)) > 0;
+                $skuSlug      = 'slug-' . $this->toSlug($sku);
 
-                $dto              = new ScrapedProductDTO($sku);
-                $dto->sku         = $sku;
-                $dto->externalRef = $sku;
+                $dto               = new ScrapedProductDTO($sku);
+                $dto->sku          = $skuSlug;
+                $dto->externalRef  = $skuSlug;
                 $dto->precioNormal = $precioNormal;
-                $dto->disponible  = $disponible;
+                $dto->disponible   = $disponible;
 
                 $productos[] = $dto;
             }
+
+            fclose($stream);
         }
 
         return $productos;
@@ -124,6 +135,25 @@ class GoogleSheetsAdapter extends BaseScraperAdapter
             log_message('error', "[GoogleSheetsAdapter] Error al obtener {$url}: " . $e->getMessage());
             return null;
         }
+    }
+
+    /**
+     * Genera un slug a partir de un texto.
+     *
+     * Ejemplos:
+     *   "WiTalk DMH"        → "witalk-dmh"
+     *   "Saramonic Air-01"  → "saramonic-air-01"
+     *   "Blink 500 B1 (Rx + Tx)" → "blink-500-b1-rx-tx"
+     */
+    private function toSlug(string $text): string
+    {
+        // Transliterar caracteres con tilde/acento a su equivalente ASCII
+        $text = transliterator_transliterate('Any-Latin; Latin-ASCII', $text) ?? $text;
+        $text = mb_strtolower($text);
+        // Reemplazar cualquier carácter que no sea letra, número o guion por "-"
+        $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+        // Limpiar guiones al inicio y final
+        return trim($text, '-');
     }
 
     /**
