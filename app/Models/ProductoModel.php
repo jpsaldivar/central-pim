@@ -25,7 +25,17 @@ class ProductoModel extends Model
             ->join('marcas', 'marcas.id = productos.marca_id', 'left')
             ->join('proveedores', 'proveedores.id = productos.proveedor_id', 'left');
 
-        if ($searchValue !== '') {
+        if (str_starts_with($searchField, 'sync_')) {
+            $tiendaId = (int) substr($searchField, 5);
+            if ($tiendaId > 0) {
+                $builder->join(
+                    'producto_tienda pt_sync',
+                    "pt_sync.producto_id = productos.id AND pt_sync.tienda_id = {$tiendaId}",
+                    'inner'
+                )->where('pt_sync.external_id IS NOT NULL')
+                 ->where('pt_sync.external_id !=', '');
+            }
+        } elseif ($searchValue !== '') {
             $columnMap = [
                 'sku'       => 'productos.sku',
                 'nombre'    => 'productos.nombre',

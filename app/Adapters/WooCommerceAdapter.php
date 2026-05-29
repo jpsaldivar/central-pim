@@ -19,6 +19,9 @@ class WooCommerceAdapter implements IntegrationInterface
     private Client $client;
     private Client $clientV2;  // Para endpoints de plugins que solo están en v2 (ej. brands)
     private const MAX_BATCH = 25;
+    private ?string $lastError = null;
+
+    public function getLastError(): ?string { return $this->lastError; }
 
     public function __construct(string $storeUrl, string $consumerKey, string $consumerSecret)
     {
@@ -161,10 +164,12 @@ class WooCommerceAdapter implements IntegrationInterface
      */
     public function updateProduct(int $id, array $wooPayload): ?array
     {
+        $this->lastError = null;
         try {
             $response = $this->client->put("products/{$id}", ['json' => $wooPayload]);
             return json_decode($response->getBody()->getContents(), true);
         } catch (GuzzleException $e) {
+            $this->lastError = $e->getMessage();
             log_message('error', "[WooCommerceAdapter::updateProduct] id={$id} " . $e->getMessage());
             return null;
         }
@@ -273,6 +278,29 @@ class WooCommerceAdapter implements IntegrationInterface
             log_message('error', '[WooCommerceAdapter::findOrCreateCategory] ' . $nombreNorm . ' ' . $e->getMessage());
             return null;
         }
+    }
+
+    /**
+     * Batch partial update by WooCommerce ID.
+     * Accepts an array of payloads that already include 'id'.
+     * Sends in chunks of MAX_BATCH. Returns count of updated and error messages.
+     *
+     * @param  array[] $updates  Each item must have 'id' + the fields to update.
+     * @return array{updated: int, errors: string[]}
+     */
+    public function batchUpdateByIds(array $updates): array
+    {
+        $result = ['updated' => 0, 'errors' => []];
+
+        foreach (array_chunk($updates, self::MAX_BATCH) as $chunk) {
+            $data = $this->sendBatch([], $chunk);
+            $result['updated'] += count($data['update'] ?? []);
+            foreach ($data['_errors'] as $e) {
+                $result['errors'][] = $e;
+            }
+        }
+
+        return $result;
     }
 
     private function sendBatch(array $toCreate, array $toUpdate): array

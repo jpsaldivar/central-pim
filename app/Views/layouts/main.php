@@ -47,6 +47,48 @@
             color: #4a6080;
             padding: 1rem 1.5rem .3rem;
         }
+        .sidebar .nav-group-toggle {
+            color: #a0aec0;
+            padding: .65rem 1.5rem;
+            font-size: .9rem;
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            cursor: pointer;
+            user-select: none;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+        .sidebar .nav-group-toggle:hover {
+            color: #fff;
+            background: #2d3f56;
+        }
+        .sidebar .nav-group-toggle.active-group {
+            color: #fff;
+        }
+        .sidebar .nav-group-toggle .chevron {
+            margin-left: auto;
+            font-size: .7rem;
+            transition: transform .2s;
+        }
+        .sidebar .nav-group-toggle[aria-expanded="true"] .chevron {
+            transform: rotate(90deg);
+        }
+        .sidebar .nav-sub-link {
+            color: #718096;
+            padding: .5rem 1.5rem .5rem 3rem;
+            font-size: .85rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            text-decoration: none;
+        }
+        .sidebar .nav-sub-link:hover, .sidebar .nav-sub-link.active {
+            color: #fff;
+            background: #253448;
+        }
         .main-content {
             margin-left: 250px;
             min-height: 100vh;
@@ -109,6 +151,34 @@
         <a href="/scrapers" class="nav-link <?= str_starts_with(uri_string(), 'scrapers') ? 'active' : '' ?>">
             <i class="bi bi-radar"></i> Scrapers
         </a>
+
+        <div class="nav-section">Plataformas</div>
+
+        <?php $wooActive = str_starts_with(uri_string(), 'woocommerce'); ?>
+        <button class="nav-group-toggle <?= $wooActive ? 'active-group' : '' ?>"
+                data-bs-toggle="collapse" data-bs-target="#nav-woocommerce"
+                aria-expanded="<?= $wooActive ? 'true' : 'false' ?>">
+            <i class="bi bi-bag-check"></i> WooCommerce
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse <?= $wooActive ? 'show' : '' ?>" id="nav-woocommerce">
+            <a href="/woocommerce" class="nav-sub-link <?= uri_string() === 'woocommerce' ? 'active' : '' ?>">
+                <i class="bi bi-lightning-charge"></i> Operaciones
+            </a>
+        </div>
+
+        <?php $jsActive = str_starts_with(uri_string(), 'jumpseller'); ?>
+        <button class="nav-group-toggle <?= $jsActive ? 'active-group' : '' ?>"
+                data-bs-toggle="collapse" data-bs-target="#nav-jumpseller"
+                aria-expanded="<?= $jsActive ? 'true' : 'false' ?>">
+            <i class="bi bi-shop-window"></i> Jumpseller
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse <?= $jsActive ? 'show' : '' ?>" id="nav-jumpseller">
+            <a href="/jumpseller" class="nav-sub-link <?= uri_string() === 'jumpseller' ? 'active' : '' ?>">
+                <i class="bi bi-hourglass-split"></i> Próximamente
+            </a>
+        </div>
         <div class="nav-section">Sistema</div>
         <a href="/logout" class="nav-link text-danger">
             <i class="bi bi-box-arrow-left"></i> Cerrar Sesión

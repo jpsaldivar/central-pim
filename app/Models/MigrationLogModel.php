@@ -154,6 +154,59 @@ class MigrationLogModel extends Model
     }
 
     // -------------------------------------------------------------------------
+    // Checkpoint helpers for actualizar-generales (accion prefix: gen_)
+
+    public function getGeneralesCheckpoint(): ?array
+    {
+        $row = $this->whereIn('accion', ['gen_checkpoint', 'gen_checkpoint_cleared'])
+                    ->orderBy('id', 'DESC')
+                    ->first();
+
+        if (!$row || $row['accion'] === 'gen_checkpoint_cleared') {
+            return null;
+        }
+
+        $state = json_decode($row['mensaje'], true) ?? [];
+        $state['last_update'] = $row['created_at'];
+        return $state;
+    }
+
+    public function saveGeneralesCheckpoint(array $state): void
+    {
+        $this->insert([
+            'tipo'            => 'generales_sync',
+            'sku'             => '',
+            'nombre_producto' => 'SISTEMA',
+            'accion'          => 'gen_checkpoint',
+            'estado'          => 'info',
+            'mensaje'         => json_encode($state),
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function getGeneralesErrors(int $limit = 10): array
+    {
+        return $this->where('tipo', 'generales_sync')
+                    ->where('estado', 'error')
+                    ->orderBy('id', 'DESC')
+                    ->limit($limit)
+                    ->findAll();
+    }
+
+    public function clearGeneralesCheckpoint(): void
+    {
+        $this->insert([
+            'tipo'            => 'generales_sync',
+            'sku'             => '',
+            'nombre_producto' => 'SISTEMA',
+            'accion'          => 'gen_checkpoint_cleared',
+            'estado'          => 'info',
+            'mensaje'         => 'Actualización de parámetros generales completada o reiniciada.',
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
 
     /**
      * Count log entries by estado since the last migration start.

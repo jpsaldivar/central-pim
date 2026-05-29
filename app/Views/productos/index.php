@@ -27,28 +27,50 @@
         </div>
 
         <!-- Buscador -->
-        <form method="GET" action="/productos" class="d-flex gap-2 mb-3">
+        <?php $isSyncFilter = str_starts_with($searchField ?? '', 'sync_'); ?>
+        <form method="GET" action="/productos" class="d-flex gap-2 mb-3" id="search-form">
             <?php if (isset($perPage) && $perPage !== 100): ?>
             <input type="hidden" name="per_page" value="<?= $perPage ?>">
             <?php endif; ?>
-            <select name="search_field" class="form-select form-select-sm" style="width:auto;">
+            <select name="search_field" class="form-select form-select-sm" style="width:auto;" id="search-field-select">
                 <option value="nombre"    <?= ($searchField ?? '') === 'nombre'    ? 'selected' : '' ?>>Nombre</option>
                 <option value="sku"       <?= ($searchField ?? '') === 'sku'       ? 'selected' : '' ?>>SKU</option>
                 <option value="marca"     <?= ($searchField ?? '') === 'marca'     ? 'selected' : '' ?>>Marca</option>
                 <option value="proveedor" <?= ($searchField ?? '') === 'proveedor' ? 'selected' : '' ?>>Proveedor</option>
+                <?php if (!empty($tiendas)): ?>
+                <optgroup label="Sincronizados">
+                    <?php foreach ($tiendas as $tienda): ?>
+                    <option value="sync_<?= $tienda['id'] ?>" <?= ($searchField ?? '') === 'sync_' . $tienda['id'] ? 'selected' : '' ?>>
+                        Sync - <?= esc($tienda['nombre']) ?>
+                    </option>
+                    <?php endforeach; ?>
+                </optgroup>
+                <?php endif; ?>
             </select>
-            <input type="text" name="search_value" class="form-control form-control-sm"
+            <input type="text" name="search_value" id="search-value-input"
+                   class="form-control form-control-sm"
                    value="<?= esc($searchValue ?? '') ?>"
-                   placeholder="Buscar..." style="max-width:260px;">
+                   placeholder="Buscar..." style="max-width:260px;<?= $isSyncFilter ? 'display:none;' : '' ?>">
             <button type="submit" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-search"></i>
             </button>
-            <?php if (!empty($searchValue)): ?>
+            <?php if (!empty($searchValue) || $isSyncFilter): ?>
             <a href="/productos" class="btn btn-sm btn-outline-danger" title="Limpiar búsqueda">
                 <i class="bi bi-x-lg"></i>
             </a>
             <?php endif; ?>
         </form>
+        <script>
+        document.getElementById('search-field-select').addEventListener('change', function () {
+            var isSync = this.value.startsWith('sync_');
+            var input  = document.getElementById('search-value-input');
+            input.style.display = isSync ? 'none' : '';
+            if (isSync) {
+                input.value = '';
+                document.getElementById('search-form').submit();
+            }
+        });
+        </script>
 
         <!-- Barra de acciones masivas (oculta hasta seleccionar algo) -->
         <div id="bulk-bar" class="d-none alert alert-secondary py-2 px-3 mb-3 d-flex align-items-center gap-3">

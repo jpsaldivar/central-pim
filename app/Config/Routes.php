@@ -76,6 +76,14 @@ $routes->get('/migraciones/progreso-inventario', 'Migraciones::progresoInventari
 $routes->post('/migraciones/sync-producto/(:num)', 'Migraciones::syncProducto/$1');
 $routes->post('/migraciones/sync-desde-jumpseller/(:num)', 'Migraciones::syncDesdeJumpseller/$1');
 
+// Plataformas
+$routes->get('/woocommerce',                             'Woocommerce::index');
+$routes->post('/woocommerce/actualizar-generales',      'Woocommerce::actualizarGenerales');
+$routes->post('/woocommerce/reanudar-generales',        'Woocommerce::reanudarGenerales');
+$routes->post('/woocommerce/reiniciar-generales',       'Woocommerce::reiniciarGenerales');
+$routes->get('/woocommerce/progreso-generales',         'Woocommerce::progresoGenerales');
+$routes->get('/jumpseller',                        'Jumpseller::index');
+
 // Scrapers
 $routes->get('/scrapers',                  'Scrapers::index');
 $routes->post('/scrapers/run/(:num)',       'Scrapers::run/$1');
