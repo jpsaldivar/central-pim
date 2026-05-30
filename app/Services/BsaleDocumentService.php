@@ -92,7 +92,7 @@ class BsaleDocumentService
                 $details[] = new BsaleDocumentDetailDTO(
                     variantId: (int) $map['bsale_variant_id'],
                     quantity:  $item['quantity'],
-                    unitValue: $item['unit_price'],
+                    // unitValue omitido: Bsale usará el precio de la lista de precios configurada
                 );
             }
 

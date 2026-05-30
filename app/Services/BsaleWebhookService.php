@@ -72,6 +72,7 @@ class BsaleWebhookService
         return [
             'woo_order_id' => $orderId,
             'client_email' => $email,
+            'order_total'  => (float) ($payload['total'] ?? 0.0),
             'items'        => $items,
         ];
     }

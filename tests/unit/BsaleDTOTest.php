@@ -13,20 +13,24 @@ final class BsaleDTOTest extends CIUnitTestCase
     // BsaleDocumentDetailDTO
     // -------------------------------------------------------------------------
 
-    public function testDetailToArrayProducesExpectedKeys(): void
+    public function testDetailToArrayWithUnitValue(): void
     {
-        $detail = new BsaleDocumentDetailDTO(
-            variantId: 101,
-            quantity:  3,
-            unitValue: 15000.0,
-        );
-
+        $detail = new BsaleDocumentDetailDTO(variantId: 101, quantity: 3, unitValue: 15000.0);
         $result = $detail->toArray();
 
         $this->assertSame(['variantId', 'quantity', 'unitValue'], array_keys($result));
         $this->assertSame(101, $result['variantId']);
         $this->assertSame(3, $result['quantity']);
         $this->assertSame(15000.0, $result['unitValue']);
+    }
+
+    public function testDetailToArrayWithoutUnitValueOmitsKey(): void
+    {
+        $detail = new BsaleDocumentDetailDTO(variantId: 55, quantity: 1);
+        $result = $detail->toArray();
+
+        $this->assertSame(['variantId', 'quantity'], array_keys($result));
+        $this->assertArrayNotHasKey('unitValue', $result);
     }
 
     // -------------------------------------------------------------------------

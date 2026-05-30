@@ -5,17 +5,22 @@ namespace App\DTOs;
 class BsaleDocumentDetailDTO
 {
     public function __construct(
-        public readonly int   $variantId,  // bsale_variant_map.bsale_variant_id
-        public readonly int   $quantity,
-        public readonly float $unitValue,  // Precio unitario (sin IVA si el tipo de doc incluye IVA)
+        public readonly int    $variantId,
+        public readonly int    $quantity,
+        public readonly ?float $unitValue = null, // null = Bsale usa el precio de la lista de precios
     ) {}
 
     public function toArray(): array
     {
-        return [
+        $data = [
             'variantId' => $this->variantId,
             'quantity'  => $this->quantity,
-            'unitValue' => $this->unitValue,
         ];
+
+        if ($this->unitValue !== null) {
+            $data['unitValue'] = $this->unitValue;
+        }
+
+        return $data;
     }
 }

@@ -67,6 +67,7 @@ final class BsaleWebhookServiceTest extends CIUnitTestCase
     {
         return array_merge([
             'id'         => 42,
+            'total'      => '30000.00',
             'billing'    => ['email' => 'cliente@ejemplo.cl'],
             'line_items' => [
                 [
@@ -114,6 +115,12 @@ final class BsaleWebhookServiceTest extends CIUnitTestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->svc->parseOrderPayload(['id' => 1, 'billing' => ['email' => 'a@b.cl'], 'line_items' => []]);
+    }
+
+    public function testParseOrderPayloadExtractsOrderTotal(): void
+    {
+        $result = $this->svc->parseOrderPayload($this->makePayload(['total' => '125990.00']));
+        $this->assertSame(125990.0, $result['order_total']);
     }
 
     public function testParseOrderPayloadFallsBackToLineTotalWhenPriceIsZero(): void

@@ -56,6 +56,7 @@
                         <th>#</th>
                         <th>Pedido WC</th>
                         <th>Email cliente</th>
+                        <th>Total WC</th>
                         <th>Estado</th>
                         <th>Doc. Bsale</th>
                         <th>PDF</th>
@@ -66,13 +67,15 @@
                 <tbody>
                 <?php foreach ($documentos as $doc): ?>
                     <?php
-                        $payload = json_decode($doc['payload_recibido'], true) ?? [];
-                        $email   = $payload['client_email'] ?? '—';
+                        $payload     = json_decode($doc['payload_recibido'], true) ?? [];
+                        $email       = $payload['client_email'] ?? '—';
+                        $orderTotal  = (float) ($payload['order_total'] ?? 0);
                     ?>
                     <tr>
                         <td class="text-muted small"><?= $doc['id'] ?></td>
                         <td><strong>#<?= esc($doc['woo_order_id']) ?></strong></td>
                         <td><?= esc($email) ?></td>
+                        <td class="text-end">$<?= $orderTotal > 0 ? number_format($orderTotal, 0, ',', '.') : '—' ?></td>
                         <td>
                             <?php if ($doc['estado'] === 'creado'): ?>
                                 <span class="badge bg-success">creado</span>

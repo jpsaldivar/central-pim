@@ -7,6 +7,7 @@
     $payload_enviado  = json_decode($documento['payload_enviado']  ?? '{}', true) ?? [];
     $bsale_response   = json_decode($documento['bsale_response']   ?? '{}', true) ?? [];
     $email            = $payload_recibido['client_email'] ?? '—';
+    $orderTotal       = (float) ($payload_recibido['order_total'] ?? 0);
     $lineItems        = $payload_recibido['items'] ?? [];
 ?>
 
@@ -74,6 +75,9 @@
                     <dt class="col-sm-5 text-muted small">Doc. Bsale ID</dt>
                     <dd class="col-sm-7"><?= $documento['bsale_document_id'] ? esc($documento['bsale_document_id']) : '—' ?></dd>
 
+                    <dt class="col-sm-5 text-muted small">Total WooCommerce</dt>
+                    <dd class="col-sm-7 fw-semibold"><?= $orderTotal > 0 ? '$' . number_format($orderTotal, 0, ',', '.') : '—' ?></dd>
+
                     <dt class="col-sm-5 text-muted small">Creado</dt>
                     <dd class="col-sm-7"><?= esc(date('d/m/Y H:i', strtotime($documento['created_at']))) ?></dd>
 
@@ -102,17 +106,38 @@
             <div class="card-header py-3 fw-semibold">Ítems del pedido</div>
             <div class="card-body p-0">
                 <table class="table table-sm mb-0">
-                    <thead><tr><th>Producto</th><th>SKU</th><th>Qty</th><th>Precio</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>SKU</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-end">Precio unit.</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                    <?php foreach ($lineItems as $item): ?>
+                    <?php foreach ($lineItems as $item):
+                        $qty       = (int) ($item['quantity'] ?? 1);
+                        $unitPrice = (float) ($item['unit_price'] ?? 0);
+                        $subtotal  = $qty * $unitPrice;
+                    ?>
                         <tr>
                             <td class="small"><?= esc(($item['name'] ?? '') !== '' ? $item['name'] : '—') ?></td>
                             <td><code class="small"><?= esc($item['sku'] ?? '—') ?></code></td>
-                            <td><?= esc($item['quantity'] ?? 1) ?></td>
-                            <td>$<?= number_format((float)($item['unit_price'] ?? 0), 0, ',', '.') ?></td>
+                            <td class="text-center"><?= $qty ?></td>
+                            <td class="text-end">$<?= number_format($unitPrice, 0, ',', '.') ?></td>
+                            <td class="text-end">$<?= number_format($subtotal, 0, ',', '.') ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
+                    <?php if ($orderTotal > 0): ?>
+                    <tfoot>
+                        <tr class="table-light fw-semibold">
+                            <td colspan="4" class="text-end">Total WooCommerce</td>
+                            <td class="text-end">$<?= number_format($orderTotal, 0, ',', '.') ?></td>
+                        </tr>
+                    </tfoot>
+                    <?php endif; ?>
                 </table>
             </div>
         </div>
