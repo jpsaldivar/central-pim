@@ -25,7 +25,7 @@ class Productos extends Controller
         $searchField  = $this->request->getGet('search_field') ?? 'nombre';
         $searchValue  = trim($this->request->getGet('search_value') ?? '');
 
-        $validFields  = ['sku', 'nombre', 'marca', 'proveedor'];
+        $validFields  = ['sku', 'nombre', 'marca', 'proveedor', 'sin_marca'];
         if (!in_array($searchField, $validFields) && !str_starts_with($searchField, 'sync_')) {
             $searchField = 'nombre';
         }

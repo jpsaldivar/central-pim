@@ -35,6 +35,8 @@ class ProductoModel extends Model
                 )->where('pt_sync.external_id IS NOT NULL')
                  ->where('pt_sync.external_id !=', '');
             }
+        } elseif ($searchField === 'sin_marca') {
+            $builder->where('productos.marca_id IS NULL', null, false);
         } elseif ($searchValue !== '') {
             $columnMap = [
                 'sku'       => 'productos.sku',

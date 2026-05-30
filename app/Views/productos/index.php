@@ -27,7 +27,7 @@
         </div>
 
         <!-- Buscador -->
-        <?php $isSyncFilter = str_starts_with($searchField ?? '', 'sync_'); ?>
+        <?php $isSyncFilter = str_starts_with($searchField ?? '', 'sync_') || ($searchField ?? '') === 'sin_marca'; ?>
         <form method="GET" action="/productos" class="d-flex gap-2 mb-3" id="search-form">
             <?php if (isset($perPage) && $perPage !== 100): ?>
             <input type="hidden" name="per_page" value="<?= $perPage ?>">
@@ -37,6 +37,7 @@
                 <option value="sku"       <?= ($searchField ?? '') === 'sku'       ? 'selected' : '' ?>>SKU</option>
                 <option value="marca"     <?= ($searchField ?? '') === 'marca'     ? 'selected' : '' ?>>Marca</option>
                 <option value="proveedor" <?= ($searchField ?? '') === 'proveedor' ? 'selected' : '' ?>>Proveedor</option>
+                <option value="sin_marca" <?= ($searchField ?? '') === 'sin_marca' ? 'selected' : '' ?>>Sin Marca</option>
                 <?php if (!empty($tiendas)): ?>
                 <optgroup label="Sincronizados">
                     <?php foreach ($tiendas as $tienda): ?>
@@ -62,10 +63,10 @@
         </form>
         <script>
         document.getElementById('search-field-select').addEventListener('change', function () {
-            var isSync = this.value.startsWith('sync_');
-            var input  = document.getElementById('search-value-input');
-            input.style.display = isSync ? 'none' : '';
-            if (isSync) {
+            var isNoInput = this.value.startsWith('sync_') || this.value === 'sin_marca';
+            var input     = document.getElementById('search-value-input');
+            input.style.display = isNoInput ? 'none' : '';
+            if (isNoInput) {
                 input.value = '';
                 document.getElementById('search-form').submit();
             }
