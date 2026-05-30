@@ -116,6 +116,18 @@ final class BsaleWebhookServiceTest extends CIUnitTestCase
         $this->svc->parseOrderPayload(['id' => 1, 'billing' => ['email' => 'a@b.cl'], 'line_items' => []]);
     }
 
+    public function testParseOrderPayloadFallsBackToLineTotalWhenPriceIsZero(): void
+    {
+        $payload = $this->makePayload([
+            'line_items' => [
+                ['product_id' => 100, 'sku' => 'CAM-001', 'quantity' => 2, 'price' => '0', 'total' => '30000'],
+            ],
+        ]);
+
+        $result = $this->svc->parseOrderPayload($payload);
+        $this->assertSame(15000.0, $result['items'][0]['unit_price']);
+    }
+
     public function testParseOrderPayloadHandlesMultipleItems(): void
     {
         $payload = $this->makePayload([

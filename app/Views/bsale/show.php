@@ -6,8 +6,8 @@
     $payload_recibido = json_decode($documento['payload_recibido'] ?? '{}', true) ?? [];
     $payload_enviado  = json_decode($documento['payload_enviado']  ?? '{}', true) ?? [];
     $bsale_response   = json_decode($documento['bsale_response']   ?? '{}', true) ?? [];
-    $email            = $payload_recibido['billing']['email'] ?? '—';
-    $lineItems        = $payload_recibido['line_items'] ?? [];
+    $email            = $payload_recibido['client_email'] ?? '—';
+    $lineItems        = $payload_recibido['items'] ?? [];
 ?>
 
 <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
@@ -106,10 +106,10 @@
                     <tbody>
                     <?php foreach ($lineItems as $item): ?>
                         <tr>
-                            <td class="small"><?= esc($item['name'] ?? '—') ?></td>
+                            <td class="small"><?= esc($item['name'] !== '' ? $item['name'] : '—') ?></td>
                             <td><code class="small"><?= esc($item['sku'] ?? '—') ?></code></td>
                             <td><?= esc($item['quantity'] ?? 1) ?></td>
-                            <td>$<?= number_format((float)($item['price'] ?? 0), 0, ',', '.') ?></td>
+                            <td>$<?= number_format((float)($item['unit_price'] ?? 0), 0, ',', '.') ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

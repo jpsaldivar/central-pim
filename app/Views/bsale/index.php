@@ -67,7 +67,7 @@
                 <?php foreach ($documentos as $doc): ?>
                     <?php
                         $payload = json_decode($doc['payload_recibido'], true) ?? [];
-                        $email   = $payload['billing']['email'] ?? '—';
+                        $email   = $payload['client_email'] ?? '—';
                     ?>
                     <tr>
                         <td class="text-muted small"><?= $doc['id'] ?></td>

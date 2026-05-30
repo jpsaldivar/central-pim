@@ -51,11 +51,21 @@ class BsaleWebhookService
 
         $items = [];
         foreach ($lineItems as $item) {
+            $qty   = (int) ($item['quantity'] ?? 1);
+            $price = (float) ($item['price'] ?? 0.0);
+
+            // WooCommerce puede enviar price=0 en order.created (aún no finalizado).
+            // Fallback: line_total ÷ cantidad, que siempre está disponible.
+            if ($price === 0.0 && $qty > 0) {
+                $price = (float) ($item['total'] ?? 0.0) / $qty;
+            }
+
             $items[] = [
                 'woo_product_id' => (int) ($item['product_id'] ?? $item['variation_id'] ?? 0),
+                'name'           => (string) ($item['name'] ?? ''),
                 'sku'            => (string) ($item['sku'] ?? ''),
-                'quantity'       => (int) ($item['quantity'] ?? 1),
-                'unit_price'     => (float) ($item['price'] ?? 0.0),
+                'quantity'       => $qty,
+                'unit_price'     => $price,
             ];
         }
 
