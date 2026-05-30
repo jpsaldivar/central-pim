@@ -106,7 +106,7 @@
                     <tbody>
                     <?php foreach ($lineItems as $item): ?>
                         <tr>
-                            <td class="small"><?= esc($item['name'] !== '' ? $item['name'] : '—') ?></td>
+                            <td class="small"><?= esc(($item['name'] ?? '') !== '' ? $item['name'] : '—') ?></td>
                             <td><code class="small"><?= esc($item['sku'] ?? '—') ?></code></td>
                             <td><?= esc($item['quantity'] ?? 1) ?></td>
                             <td>$<?= number_format((float)($item['unit_price'] ?? 0), 0, ',', '.') ?></td>

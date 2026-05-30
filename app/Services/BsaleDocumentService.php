@@ -79,6 +79,11 @@ class BsaleDocumentService
             foreach ($items as $item) {
                 $map = $this->variantMap->findByWooProductId($item['woo_product_id']);
 
+                // Si no hay mapeo local, buscar por SKU en la API de Bsale y cachear
+                if ($map === null && !empty($item['sku'])) {
+                    $map = $this->resolveVariantBySku($item['woo_product_id'], $item['sku']);
+                }
+
                 if ($map === null) {
                     $sinMapeo[] = $item['sku'] ?: "woo_product_id:{$item['woo_product_id']}";
                     continue;
@@ -93,7 +98,7 @@ class BsaleDocumentService
 
             if (!empty($sinMapeo)) {
                 throw new \RuntimeException(
-                    'Ítems sin mapeo en bsale_variant_map: ' . implode(', ', $sinMapeo) . '. Agregar desde Bsale → Mapeo de Variantes.'
+                    'SKU sin variante en Bsale: ' . implode(', ', $sinMapeo) . '. Verificar que el SKU exista en el catálogo de Bsale.'
                 );
             }
 
@@ -119,5 +124,34 @@ class BsaleDocumentService
             log_message('error', "[BsaleDocumentService] Error al emitir doc #{$docId}: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Busca el variant_id en Bsale por SKU y lo guarda en bsale_variant_map como caché.
+     * Retorna un array compatible con BsaleVariantMapModel::findByWooProductId(), o null si no existe.
+     */
+    private function resolveVariantBySku(int $wooProductId, string $sku): ?array
+    {
+        $variants = $this->adapter->findVariantBySku($sku);
+
+        if (empty($variants)) {
+            return null;
+        }
+
+        // Tomar la primera coincidencia exacta de SKU; si no, la primera de la lista
+        $match = null;
+        foreach ($variants as $v) {
+            if ($v['sku'] === $sku) {
+                $match = $v;
+                break;
+            }
+        }
+        $match ??= $variants[0];
+
+        // Guardar en la tabla de mapeo para evitar llamadas futuras
+        $this->variantMap->upsert($wooProductId, $sku, (int) $match['id'], $match['product_name']);
+        log_message('info', "[BsaleDocumentService] SKU '{$sku}' resuelto automáticamente a bsale_variant_id={$match['id']}.");
+
+        return ['bsale_variant_id' => $match['id']];
     }
 }
