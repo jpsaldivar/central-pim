@@ -9,7 +9,7 @@
     <style>
         body { background-color: #f4f6f9; }
         .sidebar {
-            min-height: 100vh;
+            height: 100vh;
             background: #1e2a3a;
             width: 250px;
             position: fixed;
@@ -17,7 +17,15 @@
             z-index: 100;
             padding-top: 0;
             transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
         }
+        .sidebar nav {
+            overflow-y: auto;
+            flex: 1;
+        }
+        .sidebar nav::-webkit-scrollbar { width: 4px; }
+        .sidebar nav::-webkit-scrollbar-thumb { background: #2d3f56; border-radius: 2px; }
         .sidebar-brand {
             padding: 1.2rem 1.5rem;
             background: #141e2d;
@@ -179,6 +187,23 @@
                 <i class="bi bi-hourglass-split"></i> Próximamente
             </a>
         </div>
+
+        <?php $bsaleActive = str_starts_with(uri_string(), 'bsale'); ?>
+        <button class="nav-group-toggle <?= $bsaleActive ? 'active-group' : '' ?>"
+                data-bs-toggle="collapse" data-bs-target="#nav-bsale"
+                aria-expanded="<?= $bsaleActive ? 'true' : 'false' ?>">
+            <i class="bi bi-receipt"></i> Bsale
+            <i class="bi bi-chevron-right chevron"></i>
+        </button>
+        <div class="collapse <?= $bsaleActive ? 'show' : '' ?>" id="nav-bsale">
+            <a href="/bsale" class="nav-sub-link <?= uri_string() === 'bsale' ? 'active' : '' ?>">
+                <i class="bi bi-file-earmark-text"></i> Documentos
+            </a>
+            <a href="/bsale/variant-map" class="nav-sub-link <?= uri_string() === 'bsale/variant-map' ? 'active' : '' ?>">
+                <i class="bi bi-link-45deg"></i> Mapeo de variantes
+            </a>
+        </div>
+
         <div class="nav-section">Sistema</div>
         <a href="/logout" class="nav-link text-danger">
             <i class="bi bi-box-arrow-left"></i> Cerrar Sesión

@@ -89,3 +89,14 @@ $routes->get('/scrapers',                  'Scrapers::index');
 $routes->post('/scrapers/run/(:num)',       'Scrapers::run/$1');
 $routes->get('/scrapers/show/(:num)',       'Scrapers::show/$1');
 $routes->post('/scrapers/link',            'Scrapers::link');
+
+// Bsale — Webhook público (protegido por firma HMAC, sin autenticación de sesión)
+$routes->post('/webhooks/woocommerce/order-created', 'Webhooks::woocommerceOrderCreated');
+
+// Bsale — UI de administración
+$routes->get('/bsale',                       'Bsale::index');
+$routes->get('/bsale/variant-map',           'Bsale::variantMap');
+$routes->post('/bsale/variant-map',          'Bsale::saveMap');
+$routes->get('/bsale/search-variant',        'Bsale::searchVariant');
+$routes->get('/bsale/show/(:num)',           'Bsale::show/$1');
+$routes->post('/bsale/emitir/(:num)',        'Bsale::emitir/$1');

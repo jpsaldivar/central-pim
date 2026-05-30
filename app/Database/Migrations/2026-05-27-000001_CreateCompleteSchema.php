@@ -18,7 +18,7 @@ class CreateCompleteSchema extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addUniqueKey('email');
-        $this->forge->createTable('usuarios');
+        $this->forge->createTable('usuarios', true);
 
         // marcas
         $this->forge->addField([
@@ -26,7 +26,7 @@ class CreateCompleteSchema extends Migration
             'nombre' => ['type' => 'VARCHAR', 'constraint' => 100],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('marcas');
+        $this->forge->createTable('marcas', true);
 
         // proveedores
         $this->forge->addField([
@@ -36,7 +36,7 @@ class CreateCompleteSchema extends Migration
             'contacto'       => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true, 'default' => null],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('proveedores');
+        $this->forge->createTable('proveedores', true);
 
         // categorias (jerarquía con parent_id)
         $this->forge->addField([
@@ -47,7 +47,7 @@ class CreateCompleteSchema extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addKey('parent_id');
-        $this->forge->createTable('categorias');
+        $this->forge->createTable('categorias', true);
 
         // tiendas (plataforma incluida desde el inicio)
         $this->forge->addField([
@@ -58,7 +58,7 @@ class CreateCompleteSchema extends Migration
             'token_auth' => ['type' => 'TEXT'],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('tiendas');
+        $this->forge->createTable('tiendas', true);
 
         // productos (sku y stock_ilimitado incluidos desde el inicio)
         $this->forge->addField([
@@ -77,7 +77,7 @@ class CreateCompleteSchema extends Migration
         $this->forge->addUniqueKey('sku');
         $this->forge->addKey('marca_id');
         $this->forge->addKey('proveedor_id');
-        $this->forge->createTable('productos');
+        $this->forge->createTable('productos', true);
 
         // producto_categoria (N:M)
         $this->forge->addField([
@@ -85,7 +85,7 @@ class CreateCompleteSchema extends Migration
             'categoria_id' => ['type' => 'INT', 'unsigned' => true],
         ]);
         $this->forge->addKey(['producto_id', 'categoria_id'], true);
-        $this->forge->createTable('producto_categoria');
+        $this->forge->createTable('producto_categoria', true);
 
         // producto_tienda (N:M con datos extra y external_id)
         $this->forge->addField([
@@ -103,7 +103,7 @@ class CreateCompleteSchema extends Migration
             ],
         ]);
         $this->forge->addKey(['producto_id', 'tienda_id'], true);
-        $this->forge->createTable('producto_tienda');
+        $this->forge->createTable('producto_tienda', true);
 
         // migration_logs
         $this->forge->addField([
@@ -120,7 +120,7 @@ class CreateCompleteSchema extends Migration
         $this->forge->addKey(['tipo', 'estado']);
         $this->forge->addKey('sku');
         $this->forge->addKey('created_at');
-        $this->forge->createTable('migration_logs');
+        $this->forge->createTable('migration_logs', true);
 
         // scraper_runs
         $this->forge->addField([
@@ -141,7 +141,7 @@ class CreateCompleteSchema extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addKey('tienda_id');
         $this->forge->addForeignKey('tienda_id', 'tiendas', 'id', 'CASCADE', 'CASCADE');
-        $this->forge->createTable('scraper_runs');
+        $this->forge->createTable('scraper_runs', true);
 
         // scraper_productos
         $this->forge->addField([
@@ -168,7 +168,7 @@ class CreateCompleteSchema extends Migration
         $this->forge->addForeignKey('run_id',      'scraper_runs', 'id', 'CASCADE',  'CASCADE');
         $this->forge->addForeignKey('tienda_id',   'tiendas',      'id', 'CASCADE',  'CASCADE');
         $this->forge->addForeignKey('producto_id', 'productos',    'id', 'SET NULL', 'SET NULL');
-        $this->forge->createTable('scraper_productos');
+        $this->forge->createTable('scraper_productos', true);
     }
 
     public function down(): void
